@@ -396,10 +396,12 @@ export const usePlayerStore = defineStore('player', {
     async saveProfileToCloud() {
       // Push current player state to Supabase profiles table
       const gameStore = useGameStore()
+      const authStore = useAuthStore()
       try {
-        // Map local state to database schema
+        // Map local state to database schema (exact column names as in SQL)
         const profileData = {
-          name: this.name,
+          username: this.name, // 'username' column is UNIQUE NOT NULL
+          name: this.name,     // 'name' column (display name)
           gender: this.gender,
           level: this.level,
           xp: this.xp,
