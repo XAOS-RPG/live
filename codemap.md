@@ -1,6 +1,6 @@
 # Code Map — GreekTorn (Χάος)
 
-Comprehensive reference for developers and AI assistants. Each file's purpose and responsibilities are documented. This is a Greek-themed browser RPG (Torn City clone) built with Vue 3 + Vite + Pinia.
+Comprehensive reference for developers and AI assistants. Each file's purpose and responsibilities are documented. This is a Greek-themed browser RPG (Torn City clone) built with Vue 3 + Vite + Pinia, now with Supabase authentication.
 
 ---
 
@@ -28,14 +28,21 @@ Pinia stores. All have `getSerializable()` and `hydrate(data)` for save/load.
 | `gameStore.js` | **Game lifecycle**: save/load to localStorage (`chaos_save_v1`), import/export JSON, notification toasts, rAF game loop (`startGameLoop`). Loads/saves all domain stores. Calculates offline progress on load (up to 24h). |
 | `playerStore.js` | **Core player state**: stats (strength/speed/dexterity/defense), resources (HP/energy/nerve/happiness), cash, level/XP, filotimo, meson, crimeXP, status (free/hospital/jail), `activeActivity` (one action at a time), `pendingResult` (dice waiting to be rolled). `tickRegen()` runs every frame — regenerates resources, resolves expired activities, checks jail/hospital timers. Getters `activityTimeRemaining` and `activityProgress` reference `lastTick` to trigger live reactivity. |
 
+### Authentication & Session Stores
+
+| Store | Responsibility |
+|-------|---------------|
+| `authStore.js` | **Supabase authentication**: manages user session, handles sign‑up / login / logout, syncs player data with Supabase profiles, bridges localStorage save with cloud backup. |
+| `eventsHubStore.js` | **Random events hub**: triggers city exploration events on navigation (5% chance), logs event results, manages cooldowns, applies event effects (cash, items, HP). |
+
 ### Activity & Action Stores
 
 | Store | Responsibility |
 |-------|---------------|
-| `crimeStore.js` | Crime logic. `startCrime()` deducts nerve, pre-rolls d6 success with `rollD6()`, starts activity timer. `applyCrimeResult()` gives rewards or applies jail. Pre-rolling prevents save-scumming. |
+| `crimeStore.js` | Crime logic. `startCrime()` deducts nerve, pre‑rolls d6 success with `rollD6()`, starts activity timer. `applyCrimeResult()` gives rewards or applies jail. Pre‑rolling prevents save‑scumming. |
 | `jobStore.js` | Legal job system. `collectPay()` once per 24h. Each job gives cash + happiness, possible item drop. Tracks `lastCollected`. |
-| `casinoStore.js` | Casino logic. `playGame()` is instant (no timer). Uses `rollD6()` for probability games, exact-match for number-guess games. Tracks stats (gamesPlayed, totalWon, totalLost). |
-| `combatStore.js` | PvE combat. `startFight(npcId)` runs full `resolveCombat()` simulation (turn-based, up to 50 turns). Sends player to hospital on loss. Rewards XP, cash, possible item drops on win. |
+| `casinoStore.js` | Casino logic. `playGame()` is instant (no timer). Uses `rollD6()` for probability games, exact‑match for number‑guess games. Tracks stats (gamesPlayed, totalWon, totalLost). |
+| `combatStore.js` | PvE combat. `startFight(npcId)` runs full `resolveCombat()` simulation (turn‑based, up to 50 turns). Sends player to hospital on loss. Rewards XP, cash, possible item drops on win. |
 | `travelStore.js` | City travel via activity system. `travelTo(locationId)` starts a timed activity. Location bonuses exposed as getters: `crimeRewardMultiplier`, `shopDiscountMultiplier`, `gymBoostMultiplier`. Current location persists. |
 | `educationStore.js` | Course tracking. `completedCourses` array, `enrollCourse()` starts timed activity. On completion applies permanent stat/skill bonuses. `educationBonuses` getter aggregates all completed course bonuses. |
 
@@ -45,16 +52,16 @@ Pinia stores. All have `getSerializable()` and `hydrate(data)` for save/load.
 |-------|---------------|
 | `inventoryStore.js` | Item storage: `{ itemId: quantity }`. Methods: `addItem`, `removeItem`, `useItem` (delegates to item's `onUse` effect). |
 | `propertyStore.js` | Property ownership. Properties give passive income per 24h (`collectIncome()`). Each property has purchasePrice and daily income. |
-| `stockStore.js` | Stock market. `tickPrices()` called every game loop frame with mean-reversion random walk. `buyStock()` / `sellStock()`. Dividends applied every 15 min via `tickDividends()`. Portfolio value computed as getter. 8 fictional Greek companies. |
+| `stockStore.js` | Stock market. `tickPrices()` called every game loop frame with mean‑reversion random walk. `buyStock()` / `sellStock()`. Dividends applied every 15 min via `tickDividends()`. Portfolio value computed as getter. 8 fictional Greek companies. |
 | `companyStore.js` | Business ownership system. Players can found businesses (Περίπτερο, Εστιατόριο, Γκαράζ, Φαρμακείο). Each business generates hourly passive income, can be leveled up. Tracks owned companies and upgrade costs. |
 
 ### Social & Community Stores
 
 | Store | Responsibility |
 |-------|---------------|
-| `factionStore.js` | Faction/gang system. `joinFaction()` allows player to join a faction. Tracks current faction, rank (member/veteran/officer/leader), contribution points, and faction bonuses. Ranks auto-promote based on contribution. |
-| `bountyStore.js` | Bounty hunting system. Pre-populated bounties on NPCs and players. `acceptBounty()` starts a combat-like activity. Rewards given on completion. Bounties expire or can be manually posted. |
-| `bazaarStore.js` | Player-to-player marketplace. `listings` are fake NPC-generated marketplace items. Players can `buyFromListing()`. Generates random item listings with varied sellers and prices. |
+| `factionStore.js` | Faction/gang system. `joinFaction()` allows player to join a faction. Tracks current faction, rank (member/veteran/officer/leader), contribution points, and faction bonuses. Ranks auto‑promote based on contribution. |
+| `bountyStore.js` | Bounty hunting system. Pre‑populated bounties on NPCs and players. `acceptBounty()` starts a combat‑like activity. Rewards given on completion. Bounties expire or can be manually posted. |
+| `bazaarStore.js` | Player‑to‑player marketplace. `listings` are fake NPC‑generated marketplace items. Players can `buyFromListing()`. Generates random item listings with varied sellers and prices. |
 
 ### Progression & Rewards Stores
 
@@ -65,19 +72,13 @@ Pinia stores. All have `getSerializable()` and `hydrate(data)` for save/load.
 | `dailyRewardStore.js` | Daily login reward system. `claimDailyReward()` once per 24h. Sequential rewards that scale (day 1→10, 11→20, etc.). Streak tracking and bonus rewards. |
 | `racingStore.js` | Racing/vehicle system. Players compete in races with different difficulties. Tracks wins, best times, and racing stats. Rewards cash and XP. |
 
-### Shop & Transaction Stores
-
-| Store | Responsibility |
-|-------|---------------|
-| `shopStore.js` | General shop/store system. Allows purchase of items, consumables, and equipment. Different shop types with different inventory. Price adjustments based on location bonuses. |
-
 ---
 
 ## Engine (`src/engine/`)
 
 | File | Role |
 |------|------|
-| `formulas.js` | **All game math in one place**: `rollD6(successRate)` — converts probability to d6 result (1-6, high roll wins, preserves exact probability internally); `calculateCrimeSuccess()` — base + stat bonus + XP bonus − filotimo penalty; `calculateCrimeReward()` — random cash in range; `calculateJailTime()`; `rollItemDrop()`; `resolveCombat()` — full turn-by-turn simulation; `calculateStatGain()` — gym base gain × happiness multiplier × variance; `calculateHospitalTime()`; `calculateEscapeChance()`; `calculateBribeCost()`; `xpForLevel()` — exponential XP curve |
+| `formulas.js` | **All game math in one place**: `rollD6(successRate)` — converts probability to d6 result (1‑6, high roll wins, preserves exact probability internally); `calculateCrimeSuccess()` — base + stat bonus + XP bonus − filotimo penalty; `calculateCrimeReward()` — random cash in range; `calculateJailTime()`; `rollItemDrop()`; `resolveCombat()` — full turn‑by‑turn simulation; `calculateStatGain()` — gym base gain × happiness multiplier × variance; `calculateHospitalTime()`; `calculateEscapeChance()`; `calculateBribeCost()`; `xpForLevel()` — exponential XP curve |
 
 ---
 
@@ -104,7 +105,9 @@ Static game data. Import and read — never mutate at runtime.
 | `factions.js` | Faction data: id, name, icon, description, bonus effects for members. Each faction has unique stat/income bonuses |
 | `dailyRewards.js` | Sequential daily reward tiers. Each day has cash/XP reward amounts. Bonus multipliers for streaks |
 | `racing.js` | Racing courses with difficulty, distance, time limits, rewards, leaderboard data |
-| `fakeUsers.js` | Pre-generated NPC player profiles (nickname, level, stats, icon). Used for bounty system, bazaar sellers, faction members |
+| `fakeUsers.js` | Pre‑generated NPC player profiles (nickname, level, stats, icon). Used for bounty system, bazaar sellers, faction members |
+| `fakeAds.js` | Fake advertisement banners for immersion (displayed in newspaper, bazaar, etc.) |
+| `cityExplorationEvents.js` | Weighted random city events triggered during navigation. Includes cash finds, item discoveries, HP loss/gain, etc. |
 
 ---
 
@@ -112,12 +115,18 @@ Static game data. Import and read — never mutate at runtime.
 
 One Vue component per page/route. All routed through Vue Router.
 
+### Authentication & Setup Views
+
+| View | Route | Description |
+|------|-------|-------------|
+| `AuthView.vue` | `/auth` | Supabase login / registration form, password reset, social sign‑in (Google). Redirects to `/` after successful auth. |
+| `CharacterCreateView.vue` | `/create` | Name input + stat allocation (10 points), starts new game |
+
 ### Main Game Views
 
 | View | Route | Description |
 |------|-------|-------------|
-| `CharacterCreateView.vue` | `/create` | Name input + stat allocation (10 points), starts new game |
-| `HomeView.vue` | `/` | Dashboard: resource bars, quick-action grid, activity log, status display |
+| `HomeView.vue` | `/` | Dashboard: resource bars, quick‑action grid, activity log, status display |
 | `ProfileView.vue` | `/profile` | Full stats display, rank, XP bar, activity history, detailed player info |
 | `SettingsView.vue` | `/settings` | Export/import/delete save, game info, credits |
 
@@ -127,7 +136,7 @@ One Vue component per page/route. All routed through Vue Router.
 |------|-------|-------------|
 | `CrimeView.vue` | `/crimes` | Crime list with success%, nerve cost, duration. Timer card while active. "Ρίξε το Ζάρι" button when timer expires. Dice → apply reward/jail |
 | `GymView.vue` | `/gym` | Stat tabs (4 stats) → exercise cards. Timer while training. "Ρίξε το Ζάρι" button when done. Dice roll = multiplier on stat gain (1→x0.5, 6→x2.0) |
-| `CombatView.vue` | `/combat` | NPC list, start fight, shows turn-by-turn log, result card |
+| `CombatView.vue` | `/combat` | NPC list, start fight, shows turn‑by‑turn log, result card |
 | `JobView.vue` | `/job` | Job list, select job, collect daily pay button (24h cooldown) |
 | `TravelView.vue` | `/travel` | City list with travel time and bonuses, travel activity card |
 | `EducationView.vue` | `/education` | Category tabs, course cards with prerequisites, enrollment, completion tracking |
@@ -159,12 +168,12 @@ One Vue component per page/route. All routed through Vue Router.
 | `MissionsView.vue` | `/missions` | Active daily missions, progress tracking, reward claims. Missions refresh daily at midnight |
 | `FactionView.vue` | `/faction` | Faction list to join, current faction display, member list, faction bonuses, rank info |
 | `BountyView.vue` | `/bounty` | Bounty list on NPCs and players, difficulty info, rewards, accept bounty for combat |
-| `DailyRewardView.vue` | `/daily-reward` | Daily login reward display, claim button, streak counter, upcoming rewards |
+| `DailyRewardView.vue` | `/daily‑reward` | Daily login reward display, claim button, streak counter, upcoming rewards |
 | `LeaderboardView.vue` | `/leaderboard` | Global rankings by wealth, level, combat wins, crime stats, achievements |
 | `ForumsView.vue` | `/forums` | Player forums (coming soon) |
 | `MessagesView.vue` | `/messages` | Private messaging system (coming soon) |
-| `NewspaperView.vue` | `/newspaper` | In-game news/events (coming soon) |
-| `KontresView.vue` | `/kontres` | Player-vs-player encounters/duels system (coming soon) |
+| `NewspaperView.vue` | `/newspaper` | In‑game news/events (coming soon) |
+| `KontresView.vue` | `/kontres` | Player‑vs‑player encounters/duels system (coming soon) |
 
 ---
 
@@ -181,10 +190,10 @@ One Vue component per page/route. All routed through Vue Router.
 
 | Component | Role |
 |-----------|------|
-| `DiceRoll.vue` | Dice roll overlay. **Two modes**: `check` (crimes/casino) — pip scale 1-6, success/fail result; `multiplier` (gym) — 3×2 multiplier table, shows x0.5–x2.0 result. Player stops the spinning die manually via "Σταμάτα!" button. Roll is pre-determined at activity start (anti-cheat). |
+| `DiceRoll.vue` | Dice roll overlay. **Two modes**: `check` (crimes/casino) — pip scale 1‑6, success/fail result; `multiplier` (gym) — 3×2 multiplier table, shows x0.5–x2.0 result. Player stops the spinning die manually via "Σταμάτα!" button. Roll is pre‑determined at activity start (anti‑cheat). |
 | `ActivityTimer.vue` | Compact bar shown in StatusBar while an activity is in progress. Countdown + progress bar. Click navigates to the relevant page |
 | `ResourceBar.vue` | Reusable labeled progress bar for HP/energy/nerve/happiness |
-| `ToastNotification.vue` | Toast notifications (top-right, auto-dismiss after 3s, max 5 visible) |
+| `ToastNotification.vue` | Toast notifications (top‑right, auto‑dismiss after 3s, max 5 visible) |
 | `ComingSoon.vue` | Placeholder component for features under development |
 
 ### Casino Components
@@ -199,7 +208,7 @@ One Vue component per page/route. All routed through Vue Router.
 
 | Component | Role |
 |-----------|------|
-| `CombatArena.vue` | Main combat display. Shows health bars, turn-by-turn log, attack buttons, result summary. Used in CombatView |
+| `CombatArena.vue` | Main combat display. Shows health bars, turn‑by‑turn log, attack buttons, result summary. Used in CombatView |
 | `BattleEquipPopup.vue` | Equipment selection popup during combat (weapons, armor changes) |
 
 ---
@@ -208,12 +217,28 @@ One Vue component per page/route. All routed through Vue Router.
 
 | File | Role |
 |------|------|
-| `variables.css` | CSS custom properties: colors (primary/secondary/danger/success), spacing (sm/md/lg), typography (font-family, sizes), border radius, transitions |
+| `variables.css` | CSS custom properties: colors (primary/secondary/danger/success), spacing (sm/md/lg), typography (font‑family, sizes), border radius, transitions |
 | `reset.css` | Minimal CSS reset (no opinionated defaults) |
-| `base.css` | Body defaults, scrollbar styling, utility classes (`.flex`, `.text-muted`, `.badge-*`, `.btn`, `.card`, etc.) |
-| `components.css` | Shared component styles: `.card`, `.btn`, `.badge`, `.bar-track/.bar-fill`, `.grid`, `.tabs` |
+| `base.css` | Body defaults, scrollbar styling, utility classes (`.flex`, `.text‑muted`, `.badge‑*`, `.btn`, `.card`, etc.) |
+| `components.css` | Shared component styles: `.card`, `.btn`, `.badge`, `.bar‑track/.bar‑fill`, `.grid`, `.tabs` |
 | `animations.css` | Global keyframe animations: spin, pulse, fadeIn, slideIn, diceRoll, etc. |
-| `responsive.css` | Breakpoints: mobile-first, tablet at 768px, desktop at 1024px, large desktop at 1400px |
+| `responsive.css` | Breakpoints: mobile‑first, tablet at 768px, desktop at 1024px, large desktop at 1400px |
+
+---
+
+## Lib (`src/lib/`)
+
+| File | Role |
+|------|------|
+| `supabaseClient.js` | Supabase client initialization using environment variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`). Exports a singleton client used across the app. |
+
+---
+
+## Utils (`src/utils/`)
+
+| File | Role |
+|------|------|
+| `combatSession.js` | Session‑storage utilities for combat interruption detection. Persists combat state across page refreshes, marks interrupted fights, prevents cheating by closing tabs mid‑fight. |
 
 ---
 
@@ -222,20 +247,23 @@ One Vue component per page/route. All routed through Vue Router.
 | File | Purpose |
 |------|---------|
 | `README.md` | Project documentation, setup instructions, feature overview |
+| `code_map.md` | Alternative concise code map (legacy) |
+| `.env` | Environment variables for Supabase, local development |
 | `.gitignore` | Git ignore patterns (node_modules, dist, .env, etc.) |
 | `.github/workflows/deploy.yml` | GitHub Actions workflow for automated deployment to GitHub Pages |
 | `push.ps1` | PowerShell script for git push operations |
+| `supabase_profiles_schema.sql` | SQL schema for Supabase profiles table (user‑extended fields) |
 
 ---
 
 ## Key Patterns
 
 ### Activity System
-Only one activity at a time (`playerStore.activeActivity`). Result is pre-rolled at start and stored in `preRolled` — prevents save-scumming. Timer expires → `pendingResult` set → player navigates to view and manually rolls the dice. After dice dismiss → rewards/penalties applied → `clearPendingResult()`.
+Only one activity at a time (`playerStore.activeActivity`). Result is pre‑rolled at start and stored in `preRolled` — prevents save‑scumming. Timer expires → `pendingResult` set → player navigates to view and manually rolls the dice. After dice dismiss → rewards/penalties applied → `clearPendingResult()`.
 
-**Flow**: 
+**Flow**:
 1. User clicks action (crime, gym, combat, etc.)
-2. `startAction()` deducts resources, pre-rolls d6, starts timer, sets `activeActivity`
+2. `startAction()` deducts resources, pre‑rolls d6, starts timer, sets `activeActivity`
 3. Timer completes, `pendingResult` set
 4. User navigates to action view
 5. Dice roll UI shows (animated), user clicks "Σταμάτα!"
@@ -243,7 +271,7 @@ Only one activity at a time (`playerStore.activeActivity`). Result is pre-rolled
 7. `clearPendingResult()` resets state
 
 ### Dice System (d6)
-`rollD6(rate)` maps 0–1 probability to a d6 target (1-6). Outcome determined by exact probability, then a matching d6 face is chosen so the visual is always consistent. 
+`rollD6(rate)` maps 0–1 probability to a d6 target (1‑6). Outcome determined by exact probability, then a matching d6 face is chosen so the visual is always consistent.
 
 - **Crimes/Casino**: success/fail check (probability to success threshold)
 - **Gym**: multiplier (x0.5 to x2.0 on stat gains)
@@ -255,19 +283,30 @@ Only one activity at a time (`playerStore.activeActivity`). Result is pre-rolled
 `gameStore.saveGame()` calls `getSerializable()` on all stores, writes to `localStorage`. `loadGame()` calls `hydrate(data)` on each. `SAVE_VERSION = 1` — version mismatch discards old save. Supports offline progress calculation (up to 24h).
 
 ### Achievement Checking
-After each action, `achievementStore.checkAchievements()` evaluates all achievements against current game state snapshot. Achievements unlock silently, players claim rewards in AchievementsView. Anti-cheat: checks are state-based, not event-based.
+After each action, `achievementStore.checkAchievements()` evaluates all achievements against current game state snapshot. Achievements unlock silently, players claim rewards in AchievementsView. Anti‑cheat: checks are state‑based, not event‑based.
 
 ### Daily Reset Logic
 Missions, daily rewards, and job pay tracked via `lastRefreshDate` / `lastCollected` (date strings or timestamps). Midnight UTC triggers refresh on next load/tick.
+
+### Supabase Integration
+- `authStore` manages authentication state, syncs player data with Supabase `profiles` table.
+- `supabaseClient` is the singleton client used for all real‑time queries.
+- `supabase_profiles_schema.sql` defines the extended profile schema (level, cash, stats, etc.) that mirrors localStorage save.
+
+### City Exploration Events
+Random events triggered on navigation (5% chance, 30‑second cooldown). Events are weighted, can give cash, items, HP changes. Managed by `eventsHubStore`.
+
+### Combat Session Persistence
+`combatSession.js` uses `sessionStorage` to detect page refresh/tab close during combat. If a fight is interrupted, the player is considered defeated (sent to hospital). Prevents combat‑state abuse.
 
 ---
 
 ## Development Notes
 
-- **Greek Language**: All UI text, item names, and achievement titles are in Greek (UTF-8)
-- **Capacitor-Compatible**: Hash routing for mobile app support
-- **No Backend**: Fully client-side, localStorage persistence only
-- **Anti-Cheat**: Pre-rolling results, localStorage checksums (optional), no server validation
-- **Mobile-First CSS**: Responsive design from 320px to 1400px+
-- **Pinia State Management**: Centralized stores, auto-save to localStorage
+- **Greek Language**: All UI text, item names, and achievement titles are in Greek (UTF‑8)
+- **Capacitor‑Compatible**: Hash routing for mobile app support
+- **Hybrid Persistence**: LocalStorage for game state, Supabase for authentication and optional cloud backup
+- **Anti‑Cheat**: Pre‑rolling results, localStorage checksums (optional), session‑storage combat tracking
+- **Mobile‑First CSS**: Responsive design from 320px to 1400px+
+- **Pinia State Management**: Centralized stores, auto‑save to localStorage
 - **Vue 3 Composition**: Components use setup() and computed/ref reactivity
