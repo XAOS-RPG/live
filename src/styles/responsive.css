@@ -1,0 +1,48 @@
+/* === Mobile First (default) === */
+
+/* Tablet and up */
+@media (min-width: 768px) {
+  :root {
+    --status-bar-height: 60px;
+  }
+
+  .app-layout {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) 1fr;
+    grid-template-rows: var(--status-bar-height) 1fr;
+    height: 100%;
+  }
+
+  .status-bar {
+    grid-column: 1 / -1;
+  }
+
+  .sidebar {
+    display: flex !important;
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .main-content {
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  .bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Desktop — wider content, no max-width cap */
+@media (min-width: 1024px) {
+  .main-content {
+    padding: var(--space-lg) var(--space-xl);
+  }
+}
+
+/* Large desktop — center content with comfortable max */
+@media (min-width: 1400px) {
+  .main-content {
+    max-width: 1100px;
+  }
+}

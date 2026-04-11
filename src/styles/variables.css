@@ -1,0 +1,93 @@
+:root {
+  /* === Greek Flag Colors === */
+  --color-primary:        #0D5EAF;
+  --color-primary-light:  #1A78D6;
+  --color-primary-dark:   #083D75;
+  --color-primary-bg:     #0A1929;
+  --color-secondary:      #FFFFFF;
+  --color-accent:         #4FC3F7;
+  --color-accent-dark:    #0288D1;
+
+  /* === Semantic Colors === */
+  --color-success:        #4CAF50;
+  --color-danger:         #E53935;
+  --color-warning:        #FFA726;
+  --color-info:           #29B6F6;
+
+  /* === Resource Bar Colors === */
+  --color-hp:             #E53935;
+  --color-hp-bg:          #4A1515;
+  --color-energy:         #4CAF50;
+  --color-energy-bg:      #1A3A1A;
+  --color-nerve:          #AB47BC;
+  --color-nerve-bg:       #2A1A2E;
+  --color-happiness:      #FFB300;
+  --color-happiness-bg:   #3A2A0A;
+
+  /* === Backgrounds === */
+  --bg-base:              #060E1A;
+  --bg-surface:           #0C1929;
+  --bg-surface-raised:    #122240;
+  --bg-surface-overlay:   #1A2D4D;
+  --bg-input:             #0A1525;
+
+  /* === Text === */
+  --text-primary:         #EAEAEA;
+  --text-secondary:       #9EAFC0;
+  --text-disabled:        #4A5568;
+  --text-link:            #4FC3F7;
+  --text-on-primary:      #FFFFFF;
+
+  /* === Borders === */
+  --border-color:         #1A3050;
+  --border-color-light:   #2A4060;
+  --border-radius-sm:     4px;
+  --border-radius-md:     8px;
+  --border-radius-lg:     12px;
+  --border-radius-full:   9999px;
+
+  /* === Spacing === */
+  --space-xs:             4px;
+  --space-sm:             8px;
+  --space-md:             16px;
+  --space-lg:             24px;
+  --space-xl:             32px;
+  --space-2xl:            48px;
+
+  /* === Typography === */
+  --font-family:          'Roboto', 'Noto Sans', sans-serif;
+  --font-family-mono:     'Roboto Mono', monospace;
+  --font-size-xs:         0.75rem;
+  --font-size-sm:         0.875rem;
+  --font-size-base:       1rem;
+  --font-size-lg:         1.125rem;
+  --font-size-xl:         1.25rem;
+  --font-size-2xl:        1.5rem;
+  --font-size-3xl:        2rem;
+  --font-weight-normal:   400;
+  --font-weight-medium:   500;
+  --font-weight-bold:     700;
+
+  /* === Shadows === */
+  --shadow-sm:            0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:            0 4px 6px rgba(0,0,0,0.5);
+  --shadow-lg:            0 10px 25px rgba(0,0,0,0.6);
+
+  /* === Layout === */
+  --status-bar-height:    140px;
+  --nav-bar-height:       64px;
+  --sidebar-width:        240px;
+  --max-content-width:    600px;
+
+  /* === Transitions === */
+  --transition-fast:      150ms ease;
+  --transition-normal:    250ms ease;
+  --transition-slow:      400ms ease;
+
+  /* === Z-index === */
+  --z-base:               1;
+  --z-dropdown:           100;
+  --z-sticky:             200;
+  --z-modal:              300;
+  --z-toast:              400;
+}

@@ -1,0 +1,61 @@
+export const factions = [
+  {
+    id: 'wolves',
+    name: 'Λύκοι της Αθήνας',
+    icon: '🐺',
+    description: 'Η πιο σκληρή συμμορία της Αθήνας. Κυριαρχούν στους δρόμους.',
+    color: '#E53935',
+    bonus: { type: 'strength', value: 5, label: '+5 Δύναμη' },
+    requirement: { level: 3, filotimo: 20 },
+    members: 47,
+    leader: 'Νίκος "Λύκος" Παπαδόπουλος',
+  },
+  {
+    id: 'shadows',
+    name: 'Σκιές του Πειραιά',
+    icon: '🌑',
+    description: 'Ειδικοί στη λαθρεμπορία και τις κλοπές. Κινούνται στη σιωπή.',
+    color: '#7E57C2',
+    bonus: { type: 'dexterity', value: 5, label: '+5 Επιδεξιότητα' },
+    requirement: { level: 3, filotimo: 20 },
+    members: 35,
+    leader: 'Σπύρος "Φάντασμα" Κωστόπουλος',
+  },
+  {
+    id: 'spartans',
+    name: 'Σπαρτιάτες',
+    icon: '🛡️',
+    description: 'Πειθαρχημένοι πολεμιστές. Τιμή πάνω απ\' όλα.',
+    color: '#FF8F00',
+    bonus: { type: 'defense', value: 5, label: '+5 Άμυνα' },
+    requirement: { level: 5, filotimo: 40 },
+    members: 28,
+    leader: 'Λεωνίδας Αλεξίου',
+  },
+  {
+    id: 'hermes',
+    name: 'Τάγμα του Ερμή',
+    icon: '⚡',
+    description: 'Γρήγοροι, έξυπνοι, αποτελεσματικοί. Οι μεσάζοντες του υποκόσμου.',
+    color: '#4FC3F7',
+    bonus: { type: 'speed', value: 5, label: '+5 Ταχύτητα' },
+    requirement: { level: 5, filotimo: 40 },
+    members: 31,
+    leader: 'Δημήτρης "Αστραπή" Νικολάου',
+  },
+  {
+    id: 'olympians',
+    name: 'Ολύμπιοι',
+    icon: '🏛️',
+    description: 'Η ελίτ του εγκλήματος. Μόνο οι καλύτεροι γίνονται δεκτοί.',
+    color: '#FFD700',
+    bonus: { type: 'all', value: 3, label: '+3 σε όλα τα stats' },
+    requirement: { level: 10, filotimo: 80 },
+    members: 12,
+    leader: 'Ο Άγνωστος',
+  },
+]
+
+export function getFactionById(id) {
+  return factions.find(f => f.id === id)
+}
