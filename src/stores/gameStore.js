@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { SAVE_KEY, SAVE_VERSION, AUTO_SAVE_INTERVAL_MS, MAX_OFFLINE_MS } from '../data/constants'
 import { usePlayerStore } from './playerStore'
+import { useAuthStore } from './authStore'
 import { useCrimeStore } from './crimeStore'
 import { useInventoryStore } from './inventoryStore'
 import { useCombatStore } from './combatStore'
@@ -63,6 +64,7 @@ export const useGameStore = defineStore('game', {
     saveGame() {
       try {
         const playerStore = usePlayerStore()
+        const authStore = useAuthStore()
 
         const crimeStore = useCrimeStore()
         const inventoryStore = useInventoryStore()
@@ -97,6 +99,19 @@ export const useGameStore = defineStore('game', {
 
         localStorage.setItem(SAVE_KEY, JSON.stringify(saveData))
         this.lastSaveTimestamp = Date.now()
+
+        // If user is authenticated, also save to Supabase cloud
+        if (authStore.user) {
+          // Fire and forget - don't block the UI
+          playerStore.saveProfileToCloud().then(success => {
+            if (success) {
+              console.log('Cloud save successful')
+            } else {
+              console.warn('Cloud save failed (check network)')
+            }
+          })
+        }
+
         return true
       } catch (e) {
         console.error('Save failed:', e)

@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia'
 import { RESOURCE_DEFAULTS, REGEN_RATES, FILOTIMO_MAX, MESON_MAX, ACTIVITY_LOG_MAX } from '../data/constants'
+import { supabase } from '../lib/supabaseClient'
+import { useGameStore } from './gameStore'
+import { useAuthStore } from './authStore'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -366,6 +369,105 @@ export const usePlayerStore = defineStore('player', {
           this[key] = data[key]
         }
       })
+    },
+
+    async fetchProfile() {
+      // Fetch the current user's profile from Supabase
+      const gameStore = useGameStore()
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', this.userId) // Need to have userId from authStore
+          .single()
+
+        if (error) throw error
+
+        this.hydrateFromProfile(data)
+        gameStore.addNotification('Προφίλ φορτώθηκε από το cloud', 'success')
+        return data
+      } catch (error) {
+        console.error('Failed to fetch profile:', error)
+        gameStore.addNotification('Σφάλμα φόρτωσης προφίλ από το cloud', 'danger')
+        return null
+      }
+    },
+
+    async saveProfileToCloud() {
+      // Push current player state to Supabase profiles table
+      const gameStore = useGameStore()
+      try {
+        // Map local state to database schema
+        const profileData = {
+          name: this.name,
+          gender: this.gender,
+          level: this.level,
+          xp: this.xp,
+          cash: this.cash,
+          bank: this.bank,
+          vault: this.vault,
+          filotimo: this.filotimo,
+          meson: this.meson,
+          crime_xp: this.crimeXP,
+          status: this.status,
+          status_timer_end: this.statusTimerEnd,
+          stats: this.stats,
+          resources: this.resources,
+          updated_at: new Date().toISOString()
+        }
+
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            id: this.userId,
+            ...profileData
+          }, {
+            onConflict: 'id'
+          })
+
+        if (error) throw error
+
+        console.log('Profile saved to cloud')
+        return true
+      } catch (error) {
+        console.error('Failed to save profile to cloud:', error)
+        gameStore.addNotification('Σφάλμα αποθήκευσης στο cloud', 'danger')
+        return false
+      }
+    },
+
+    hydrateFromProfile(profile) {
+      // Convert Supabase profile schema to local player state
+      if (!profile) return
+      this.name = profile.name || ''
+      this.gender = profile.gender || 'male'
+      this.level = profile.level || 1
+      this.xp = profile.xp || 0
+      this.cash = profile.cash || 500
+      this.bank = profile.bank || 0
+      this.vault = profile.vault || 0
+      this.filotimo = profile.filotimo || 50
+      this.meson = profile.meson || 0
+      this.crimeXP = profile.crime_xp || 0
+      this.status = profile.status || 'free'
+      this.statusTimerEnd = profile.status_timer_end
+      if (profile.stats) {
+        Object.assign(this.stats, profile.stats)
+      }
+      if (profile.resources) {
+        for (const rKey of ['hp', 'energy', 'nerve', 'happiness']) {
+          if (profile.resources[rKey]) {
+            Object.assign(this.resources[rKey], profile.resources[rKey])
+          }
+        }
+      }
+      // Note: regenAccumulators, activityLog, activeActivity, pendingResult are local-only
+    },
+
+    // Helper getter to get userId from auth store
+    get userId() {
+      const authStore = useAuthStore()
+      return authStore.user?.id || null
     },
   }
 })

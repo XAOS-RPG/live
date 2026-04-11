@@ -2,8 +2,15 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
 import { usePlayerStore } from '../stores/playerStore'
 import { useEventsHubStore } from '../stores/eventsHubStore'
+import { useAuthStore } from '../stores/authStore'
 
 const routes = [
+  {
+    path: '/auth',
+    name: 'auth',
+    component: () => import('../views/AuthView.vue'),
+    meta: { public: true }
+  },
   {
     path: '/create',
     name: 'create',
@@ -182,12 +189,35 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   // Stores are safe to call here because pinia is installed before router in main.js
   const gameStore = useGameStore()
   const playerStore = usePlayerStore()
+  const authStore = useAuthStore()
 
-  if (!gameStore.initialized && !to.meta.public) {
+  // Ensure auth store is initialized (sets up session listener)
+  if (!authStore.initialized) {
+    await authStore.initializeAuth()
+  }
+
+  // Public routes (no authentication required)
+  const isPublicRoute = to.meta.public === true
+  const isAuthRoute = to.path === '/auth'
+
+  // Redirect if user is logged in and trying to access auth page
+  if (isAuthRoute && authStore.user) {
+    return { path: '/' }
+  }
+
+  // Require authentication for non‑public routes
+  if (!isPublicRoute && !authStore.user) {
+    return { path: '/auth', query: { redirect: to.fullPath } }
+  }
+
+  // Legacy game‑initialization logic (only relevant after authentication)
+  if (!gameStore.initialized && !isPublicRoute) {
+    // After auth, we may want to go to character creation instead of the old '/create'
+    // For now keep the existing behavior
     return { path: '/create' }
   }
 
