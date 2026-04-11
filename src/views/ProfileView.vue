@@ -116,6 +116,19 @@
         <span class="stat-value text-mono text-accent">{{ player.crimeXP }}</span>
       </div>
     </div>
+
+    <!-- Logout -->
+    <div class="card">
+      <h3 class="card-title">Λογαριασμός</h3>
+      <div class="settings-actions">
+        <button class="btn btn-danger btn-block" @click="handleLogout">
+          🚪 Αποσύνδεση
+        </button>
+        <p class="text-muted text-center" style="font-size: var(--font-size-xs)">
+          Θα αποσυνδεθείς από το παιχνίδι.
+        </p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -123,10 +136,14 @@
 import { usePlayerStore } from '../stores/playerStore'
 import { usePropertyStore } from '../stores/propertyStore'
 import { useCombatStore } from '../stores/combatStore'
+import { useAuthStore } from '../stores/authStore'
+import { useRouter } from 'vue-router'
 
 const player = usePlayerStore()
 const propertyStore = usePropertyStore()
 const combatStore = useCombatStore()
+const authStore = useAuthStore()
+const router = useRouter()
 
 const battleStats = [
   { key: 'strength', label: 'Δύναμη', icon: '💪' },
@@ -147,6 +164,13 @@ function formatAge() {
 
 function formatDate(ts) {
   return new Date(ts).toLocaleDateString('el-GR')
+}
+
+async function handleLogout() {
+  if (confirm('Θέλεις να αποσυνδεθείς;')) {
+    await authStore.logout()
+    router.push('/auth')
+  }
 }
 </script>
 

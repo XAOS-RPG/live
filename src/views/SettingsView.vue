@@ -15,33 +15,6 @@
     </div>
 
     <div class="card">
-      <h3 class="card-title">Εξαγωγή / Εισαγωγή</h3>
-      <div class="settings-actions">
-        <button class="btn btn-outline btn-block" @click="gameStore.exportSave()">
-          📤 Εξαγωγή Save (JSON)
-        </button>
-        <div class="import-section">
-          <label class="btn btn-outline btn-block import-label">
-            📥 Εισαγωγή Save
-            <input type="file" accept=".json" @change="handleImport" class="file-input" />
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 class="card-title text-danger">Επικίνδυνη Ζώνη</h3>
-      <div class="settings-actions">
-        <button class="btn btn-danger btn-block" @click="confirmDelete">
-          🗑️ Διαγραφή Αποθήκευσης
-        </button>
-        <p class="text-muted text-center" style="font-size: var(--font-size-xs)">
-          Αυτό θα διαγράψει μόνιμα όλη την πρόοδό σου!
-        </p>
-      </div>
-    </div>
-
-    <div class="card">
       <h3 class="card-title">Πληροφορίες</h3>
       <div class="info-list">
         <div class="info-row">

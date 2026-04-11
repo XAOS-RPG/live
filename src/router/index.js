@@ -15,7 +15,7 @@ const routes = [
     path: '/create',
     name: 'create',
     component: () => import('../views/CharacterCreateView.vue'),
-    meta: { public: true }
+    meta: { public: false }
   },
   {
     path: '/',
@@ -215,15 +215,18 @@ router.beforeEach(async (to) => {
   }
 
   // Legacy game‑initialization logic (only relevant after authentication)
-  if (!gameStore.initialized && !isPublicRoute) {
-    // After auth, we may want to go to character creation instead of the old '/create'
-    // For now keep the existing behavior
+  // If user is authenticated but game not initialized, redirect to character creation
+  if (authStore.user && !gameStore.initialized && !isPublicRoute) {
     return { path: '/create' }
   }
 
+  // Prevent access to /create if game already initialized
   if (gameStore.initialized && to.path === '/create') {
     return { path: '/' }
   }
+
+  // If user is not authenticated and tries to access a non‑public route (including /create),
+  // the earlier guard will have already redirected to /auth.
 
   if (gameStore.initialized && playerStore.isIncapacitated && !to.meta.allowIncapacitated) {
     if (playerStore.status === 'hospital') return { path: '/hospital' }

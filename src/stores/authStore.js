@@ -216,11 +216,10 @@ export const useAuthStore = defineStore('auth', {
         const playerStore = usePlayerStore()
         await playerStore.hydrateFromProfile(data)
 
-        // Optionally initialize game store if needed
+        // Initialize game store if needed
         const gameStore = useGameStore()
         if (!gameStore.initialized) {
-          // This will be handled by router guard, but we can set initialized flag
-          // gameStore.setInitialized()
+          gameStore.setInitialized()
         }
 
         console.log('Player profile loaded:', data)
