@@ -1,6 +1,6 @@
 # Χάος — Greek RPG
 
-**[Παίξε εδώ / Play Now]([https://hackerw32.github.io/GreekTorn/](https://xaos-rpg.github.io/live/))**
+**[Παίξε εδώ / Play Now](https://xaos-rpg.github.io/live/)**
 
 Ένα Greek-themed browser RPG εμπνευσμένο από το Torn City. Φτιάξε τον χαρακτήρα σου, κάνε εγκλήματα, γυμνάσου, ταξίδεψε σε όλη την Ελλάδα και χτίσε την εγκληματική σου αυτοκρατορία.
 
