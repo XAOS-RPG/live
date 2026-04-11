@@ -398,9 +398,24 @@ export const usePlayerStore = defineStore('player', {
       const gameStore = useGameStore()
       const authStore = useAuthStore()
       try {
+        // Ensure we have a valid authenticated user ID
+        const userId = this.userId
+        if (!userId) {
+          console.warn('Cannot save profile to cloud: userId is null (user not authenticated)')
+          return false
+        }
+
+        // Log auth state for debugging
+        console.log('Auth store user:', authStore.user)
+        const { data: sessionData } = await supabase.auth.getSession()
+        console.log('Supabase auth session:', sessionData)
+
+        // Ensure username is not empty (UNIQUE NOT NULL constraint)
+        const username = this.name || authStore.user?.email?.split('@')[0] || `user_${userId.substring(0, 8)}`
+        
         // Map local state to database schema (exact column names as in SQL)
         const profileData = {
-          username: this.name, // 'username' column is UNIQUE NOT NULL
+          username, // 'username' column is UNIQUE NOT NULL
           name: this.name,     // 'name' column (display name)
           gender: this.gender,
           level: this.level,
@@ -418,21 +433,77 @@ export const usePlayerStore = defineStore('player', {
           updated_at: new Date().toISOString()
         }
 
+        console.log('Saving profile to cloud:', { userId, profileData })
+
+        // First try to fetch existing profile to see if it exists
+        const { data: existing, error: fetchError } = await supabase
+          .from('profiles')
+          .select('id, created_at')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (fetchError) {
+          console.warn('Fetch existing profile failed:', fetchError)
+          // Continue anyway, upsert will handle it
+        }
+
+        console.log('Existing profile:', existing ? 'found' : 'not found')
+
+        // If profile doesn't exist, include created_at
+        const upsertPayload = {
+          id: userId,
+          ...profileData
+        }
+        if (!existing) {
+          upsertPayload.created_at = new Date().toISOString()
+        }
+
+        // Use upsert with explicit onConflict
         const { error } = await supabase
           .from('profiles')
-          .upsert({
-            id: this.userId,
-            ...profileData
-          }, {
+          .upsert(upsertPayload, {
             onConflict: 'id'
           })
 
-        if (error) throw error
+        if (error) {
+          console.error('Upsert error details:', error)
+          console.error('Full error object:', JSON.stringify(error, null, 2))
+          
+          // If upsert fails due to RLS, try to refresh session and retry
+          if (error.code === '42501' || error.message.includes('row-level security')) {
+            console.warn('RLS violation, attempting to refresh session...')
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) {
+              console.error('No active session after refresh')
+            } else {
+              console.log('Refreshed session user:', session.user?.id)
+            }
+            
+            // Try a direct insert with explicit created_at
+            console.warn('Attempting insert as fallback...')
+            const { error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: userId,
+                ...profileData,
+                created_at: new Date().toISOString()
+              })
+            if (insertError) {
+              console.error('Insert fallback also failed:', insertError)
+              console.error('Insert error details:', JSON.stringify(insertError, null, 2))
+              throw insertError
+            }
+            console.log('Profile inserted via fallback')
+            return true
+          }
+          throw error
+        }
 
         console.log('Profile saved to cloud')
         return true
       } catch (error) {
         console.error('Failed to save profile to cloud:', error)
+        console.error('Full error stack:', error.stack)
         gameStore.addNotification('Σφάλμα αποθήκευσης στο cloud', 'danger')
         return false
       }
