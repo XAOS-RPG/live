@@ -398,16 +398,38 @@ export const usePlayerStore = defineStore('player', {
       const gameStore = useGameStore()
       const authStore = useAuthStore()
       try {
-        // Ensure we have a valid authenticated user ID
-        const userId = this.userId
-        if (!userId) {
-          console.warn('Cannot save profile to cloud: userId is null (user not authenticated)')
+        // Ensure auth store is fully initialized before attempting cloud save
+        if (!authStore.initialized) {
+          console.debug('Auth store not yet initialized - skipping cloud save')
           return false
         }
 
-        // Log auth state for debugging
+        // Primary source: getter that reads authStore.user?.id
+        let userId = this.userId
+        
+        // Fetch session once (we'll need it for logging and possibly fallback)
+        let sessionData = null
+        if (!userId) {
+          // Fallback: if userId is null, attempt to retrieve directly from Supabase session
+          const { data } = await supabase.auth.getSession()
+          sessionData = data
+          userId = data?.session?.user?.id || null
+          // Debug log only, no warning - this is a normal race condition
+          console.debug('Fallback userId from session:', userId)
+        } else {
+          // Still fetch session for logging (but avoid extra call if already fetched)
+          const { data } = await supabase.auth.getSession()
+          sessionData = data
+        }
+
+        // Final guard clause - if still null, abort gracefully
+        if (!userId) {
+          console.debug('Cannot save profile to cloud: userId is null (user not authenticated) - skipping cloud save')
+          return false
+        }
+
+        // Log auth state for debugging (optional)
         console.log('Auth store user:', authStore.user)
-        const { data: sessionData } = await supabase.auth.getSession()
         console.log('Supabase auth session:', sessionData)
 
         // Ensure username is not empty (UNIQUE NOT NULL constraint)
