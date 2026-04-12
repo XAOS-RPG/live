@@ -24,20 +24,22 @@ export const useAuthStore = defineStore('auth', {
       if (this.initialized) return
 
       try {
-        // Check current session
         const { data: { session }, error } = await supabase.auth.getSession()
         if (error) throw error
 
         this.session = session
         this.user = session?.user ?? null
+        this.initialized = true
+        console.log('Auth initialized', { user: this.user })
 
-        // Set up auth state change listener
+        // Set up auth state change listener — only react to real sign-in/out events,
+        // not the INITIAL_SESSION echo (which would double-load the profile).
         supabase.auth.onAuthStateChange((event, session) => {
           console.log('Supabase auth event:', event)
           this.session = session
           this.user = session?.user ?? null
 
-          if (event === 'SIGNED_IN' && this.user) {
+          if (event === 'SIGNED_IN') {
             this.handleNewUserSession()
           }
 
@@ -46,16 +48,14 @@ export const useAuthStore = defineStore('auth', {
           }
         })
 
-        this.initialized = true
-        console.log('Auth initialized', { user: this.user })
-        
-        // If we have a session, load player profile
+        // Load profile once from the initial session (not via the listener)
         if (this.user) {
           await this.loadPlayerProfile()
         }
       } catch (error) {
         console.error('Auth initialization error:', error)
         this.error = error.message
+        this.initialized = true // mark done even on error so router doesn't spin
       }
     },
 
@@ -154,7 +154,6 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async createUserProfile(userId, username, email) {
-      // Create a full profile row with default game values matching the SQL schema
       const defaultStats = { strength: 5, speed: 5, dexterity: 5, defense: 5 }
       const defaultResources = {
         hp: { current: RESOURCE_DEFAULTS.hp.max, max: RESOURCE_DEFAULTS.hp.max },
@@ -184,24 +183,22 @@ export const useAuthStore = defineStore('auth', {
             stats: defaultStats,
             resources: defaultResources,
             created_at: new Date().toISOString()
-          }, {
-            onConflict: 'id'
-          })
+          }, { onConflict: 'id' })
 
         if (error) {
           console.warn('Profile creation error:', error)
-          // Don't throw - auth succeeded even if profile fails
-          this.showNotification('Προφίλ δημιουργήθηκε με προεπιλεγμένες τιμές', 'info')
-        } else {
-          console.log('Profile created successfully')
+          return false // signal failure to caller
         }
+
+        console.log('Profile created successfully')
+        return true
       } catch (err) {
         console.warn('Profile creation failed:', err)
+        return false
       }
     },
 
     async loadPlayerProfile() {
-      // Fetch the current user's profile from Supabase and hydrate playerStore
       if (!this.user) return
 
       try {
@@ -216,7 +213,6 @@ export const useAuthStore = defineStore('auth', {
         const playerStore = usePlayerStore()
         await playerStore.hydrateFromProfile(data)
 
-        // Initialize game store if needed
         const gameStore = useGameStore()
         if (!gameStore.initialized) {
           gameStore.setInitialized()
@@ -226,12 +222,34 @@ export const useAuthStore = defineStore('auth', {
         this.showNotification('Προφίλ φορτώθηκε', 'success')
       } catch (error) {
         console.error('Failed to load player profile:', error)
-        // If profile doesn't exist, create one (should not happen after registration)
-        if (error.code === 'PGRST116') { // No rows returned
+
+        if (error.code === 'PGRST116') {
+          // Profile row missing — try to create it once, but only if the auth user
+          // actually exists (guard against stale sessions after account deletion).
           console.warn('Profile missing, creating default...')
-          await this.createUserProfile(this.user.id, this.user.user_metadata?.username || this.user.email, this.user.email)
-          // Retry loading
-          await this.loadPlayerProfile()
+          const created = await this.createUserProfile(
+            this.user.id,
+            this.user.user_metadata?.username || this.user.email,
+            this.user.email
+          )
+          // Only retry if creation succeeded
+          if (created) {
+            const { data: retryData, error: retryErr } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', this.user.id)
+              .single()
+            if (!retryErr && retryData) {
+              const playerStore = usePlayerStore()
+              await playerStore.hydrateFromProfile(retryData)
+              const gameStore = useGameStore()
+              if (!gameStore.initialized) gameStore.setInitialized()
+            }
+          } else {
+            // Creation failed (e.g. stale session / deleted account) — force sign-out
+            console.warn('Profile creation failed — signing out stale session')
+            await supabase.auth.signOut()
+          }
         } else {
           this.showNotification('Σφάλμα φόρτωσης προφίλ', 'danger')
         }
@@ -239,10 +257,13 @@ export const useAuthStore = defineStore('auth', {
     },
 
     handleNewUserSession() {
-      // Called when user signs in (new or existing)
       console.log('New user session:', this.user)
-      // Load player profile
-      this.loadPlayerProfile()
+      // Only load profile if game isn't already initialized (avoids double-load
+      // when SIGNED_IN fires right after initializeAuth already loaded it)
+      const gameStore = useGameStore()
+      if (!gameStore.initialized) {
+        this.loadPlayerProfile()
+      }
     },
 
     clearAuthState() {
