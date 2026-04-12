@@ -23,6 +23,7 @@ export const usePlayerStore = defineStore('player', {
       energy:    { current: RESOURCE_DEFAULTS.energy.max,    max: RESOURCE_DEFAULTS.energy.max },
       nerve:     { current: RESOURCE_DEFAULTS.nerve.max,     max: RESOURCE_DEFAULTS.nerve.max },
       happiness: { current: 100,                              max: RESOURCE_DEFAULTS.happiness.max },
+      stamina:   { current: 100,                              max: 100 },
     },
 
     regenAccumulators: {
@@ -31,6 +32,10 @@ export const usePlayerStore = defineStore('player', {
       nerve: 0,
       happiness: 0,
     },
+
+    abilityPoints: 0,
+    unlockedAbilities: {},
+
 
     cash: 500,
     bank: 0,
@@ -158,6 +163,9 @@ export const usePlayerStore = defineStore('player', {
       this.createdAt = Date.now()
       this.activityLog = []
       this.regenAccumulators = { hp: 0, energy: 0, nerve: 0, happiness: 0 }
+      this.resources.stamina = { current: 100, max: 100 }
+      this.abilityPoints = 0
+      this.unlockedAbilities = {}
       this.activeActivity = null
       this.pendingResult = null
     },
@@ -170,7 +178,8 @@ export const usePlayerStore = defineStore('player', {
         // Increase HP max by 5 per level
         this.resources.hp.max += 5
         this.resources.hp.current = this.resources.hp.max
-        this.logActivity(`Ανέβηκες Επίπεδο ${this.level}!`, 'xp')
+        this.abilityPoints++
+        this.logActivity(`Ανέβηκες Επίπεδο ${this.level}! +1 Ability Point`, 'xp')
       }
     },
 
@@ -334,7 +343,10 @@ export const usePlayerStore = defineStore('player', {
           energy: { ...this.resources.energy },
           nerve: { ...this.resources.nerve },
           happiness: { ...this.resources.happiness },
+          stamina: { ...this.resources.stamina },
         },
+        abilityPoints: this.abilityPoints,
+        unlockedAbilities: { ...this.unlockedAbilities },
         regenAccumulators: { ...this.regenAccumulators },
         cash: this.cash,
         bank: this.bank,
@@ -358,8 +370,9 @@ export const usePlayerStore = defineStore('player', {
         if (key === 'stats') {
           Object.assign(this.stats, data.stats)
         } else if (key === 'resources') {
-          for (const rKey of ['hp', 'energy', 'nerve', 'happiness']) {
+          for (const rKey of ['hp', 'energy', 'nerve', 'happiness', 'stamina']) {
             if (data.resources[rKey]) {
+              if (!this.resources[rKey]) this.resources[rKey] = { current: 100, max: 100 }
               Object.assign(this.resources[rKey], data.resources[rKey])
             }
           }

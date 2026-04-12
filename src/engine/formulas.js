@@ -1,6 +1,6 @@
-/**
- * All game formulas in one place for easy balancing.
- */
+export const STAMINA_ATTACK_COST = 10
+export const STAMINA_REST_REGEN = 30
+
 
 export function calculateCrimeSuccess(crime, playerStats, crimeXP, filotimo) {
   const base = crime.baseSuccessRate
@@ -52,10 +52,11 @@ export function calculateHitChance(attacker, defender, weapon) {
   return Math.min(0.95, Math.max(0.15, (baseHit + dexBonus) * weaponAcc))
 }
 
-export function resolveCombat(playerStats, playerHP, npc, playerWeapon, npcWeapon) {
+export function resolveCombat(playerStats, playerHP, npc, playerWeapon, npcWeapon, playerStamina = 100) {
   const log = []
   let pHP = playerHP
   let nHP = npc.hp
+  let pStamina = playerStamina
   let turn = 0
   const MAX_TURNS = 50
 
@@ -66,13 +67,27 @@ export function resolveCombat(playerStats, playerHP, npc, playerWeapon, npcWeapo
     turn++
     const playerFirst = pStats.speed >= nStats.speed
 
-    const attacks = playerFirst
-      ? [{ type: 'player', atk: pStats, def: nStats, weapon: playerWeapon },
-         { type: 'npc',    atk: nStats, def: pStats, weapon: npcWeapon }]
-      : [{ type: 'npc',    atk: nStats, def: pStats, weapon: npcWeapon },
-         { type: 'player', atk: pStats, def: nStats, weapon: playerWeapon }]
+    // Player action: attack if enough stamina, else forced rest
+    const playerAction = pStamina >= STAMINA_ATTACK_COST ? 'attack' : 'rest'
+    if (playerAction === 'rest') {
+      pStamina = Math.min(100, pStamina + STAMINA_REST_REGEN)
+      log.push({ turn, actor: 'player', action: 'rest', staminaAfter: pStamina })
+    }
 
-    for (const { type, atk, def, weapon } of attacks) {
+    const attacks = playerFirst
+      ? [
+          playerAction === 'attack' ? { type: 'player', atk: pStats, def: nStats, weapon: playerWeapon } : null,
+          { type: 'npc', atk: nStats, def: pStats, weapon: npcWeapon }
+        ]
+      : [
+          { type: 'npc', atk: nStats, def: pStats, weapon: npcWeapon },
+          playerAction === 'attack' ? { type: 'player', atk: pStats, def: nStats, weapon: playerWeapon } : null,
+        ]
+
+    for (const entry of attacks) {
+      if (!entry) continue
+      const { type, atk, def, weapon } = entry
+      if (type === 'player') pStamina -= STAMINA_ATTACK_COST
       const hit = Math.random() < calculateHitChance(atk, def, weapon)
       if (hit) {
         const dmg = calculateCombatDamage(atk, def, weapon)
@@ -89,6 +104,7 @@ export function resolveCombat(playerStats, playerHP, npc, playerWeapon, npcWeapo
   return {
     winner: pHP > 0 ? 'player' : 'npc',
     playerHPRemaining: Math.max(0, pHP),
+    playerStaminaRemaining: Math.max(0, pStamina),
     npcHPRemaining: Math.max(0, nHP),
     turns: turn,
     log,

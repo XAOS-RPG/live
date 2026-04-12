@@ -98,6 +98,7 @@ const extraItems = [
   { to: '/bazaar', icon: '🏪', label: 'Παζάρι' },
   { to: '/company', icon: '🏢', label: 'Εταιρεία' },
   { to: '/profile', icon: '👤', label: 'Προφίλ' },
+  { to: '/masteries', icon: '🌳', label: 'Ικανότητες' },
   { to: '/settings', icon: '⚙️', label: 'Ρυθμίσεις' },
 ]
 

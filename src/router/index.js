@@ -177,6 +177,12 @@ const routes = [
     meta: { allowIncapacitated: true }
   },
   {
+    path: '/masteries',
+    name: 'masteries',
+    component: () => import('../views/MasteryView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/SettingsView.vue'),
