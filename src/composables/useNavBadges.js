@@ -7,6 +7,7 @@ import { useAchievementStore } from '../stores/achievementStore'
 import { useBazaarStore } from '../stores/bazaarStore'
 import { useJobStore } from '../stores/jobStore'
 import { useCompanyStore } from '../stores/companyStore'
+import { useFriendStore } from '../stores/friendStore'
 
 export function useNavBadges() {
   const player       = usePlayerStore()
@@ -17,6 +18,7 @@ export function useNavBadges() {
   const bazaar       = useBazaarStore()
   const job          = useJobStore()
   const company      = useCompanyStore()
+  const friends      = useFriendStore()
 
   const dailyBadge        = computed(() => daily.canClaim)
   const missionsBadge     = computed(() => missions.completedUnclaimed > 0)
@@ -26,8 +28,8 @@ export function useNavBadges() {
   const bazaarBadge       = computed(() => bazaar.pendingSales.length > 0)
   const jobBadge          = computed(() => job.canWork)
   const companyBadge      = computed(() => company.pendingIncome >= 1)
+  const friendsBadge      = computed(() => friends.pendingCount > 0)
 
-  // Home dot = any of the "claim" badges
   const homeBadge = computed(() =>
     dailyBadge.value ||
     missionsBadge.value ||
@@ -48,5 +50,6 @@ export function useNavBadges() {
     bazaar:       bazaarBadge,
     job:          jobBadge,
     company:      companyBadge,
+    friends:      friendsBadge,
   }
 }

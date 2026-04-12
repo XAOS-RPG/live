@@ -183,6 +183,12 @@ const routes = [
     meta: { allowIncapacitated: true }
   },
   {
+    path: '/friends',
+    name: 'friends',
+    component: () => import('../views/FriendsView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/SettingsView.vue'),

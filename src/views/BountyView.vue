@@ -127,7 +127,17 @@
             <strong>{{ user.nickname }}</strong>
             <span class="text-muted" style="font-size:var(--font-size-xs);">Επ. {{ user.level }} · {{ user.location }}</span>
           </div>
-          <span class="badge badge-info">Επ. {{ user.level }}</span>
+          <div class="target-actions">
+            <button
+              v-if="user.uuid && !friendStore.relatedIds.has(user.uuid)"
+              class="btn btn-sm btn-outline add-friend-btn"
+              :disabled="sendingFriendId === user.id"
+              @click.stop="addFriend(user)"
+            >
+              {{ sendingFriendId === user.id ? '...' : '+ Φίλος' }}
+            </button>
+            <span class="badge badge-info">Επ. {{ user.level }}</span>
+          </div>
         </div>
       </template>
     </template>
@@ -169,16 +179,19 @@ import { ref } from 'vue'
 import { useBountyStore } from '../stores/bountyStore'
 import { usePlayerStore } from '../stores/playerStore'
 import { useGameStore } from '../stores/gameStore'
+import { useFriendStore } from '../stores/friendStore'
 import { fakeUsers } from '../data/fakeUsers'
 
 const bountyStore = useBountyStore()
 const player = usePlayerStore()
 const gameStore = useGameStore()
+const friendStore = useFriendStore()
 
 const tab = ref('list')
 const selectedTarget = ref(null)
 const bountyAmount = ref(100)
 const huntResult = ref(null)
+const sendingFriendId = ref(null)
 
 const availableTargets = fakeUsers
 
@@ -247,6 +260,17 @@ function cancelBounty(id) {
     gameStore.addNotification(`Συμβόλαιο ακυρώθηκε. Επιστροφή €${formatCash(refund)}`, 'warning')
     gameStore.saveGame()
   }
+}
+
+async function addFriend(user) {
+  if (!user.uuid) return
+  sendingFriendId.value = user.id
+  const res = await friendStore.sendRequest(user.uuid)
+  sendingFriendId.value = null
+  gameStore.addNotification(
+    res.ok ? `Αίτημα φιλίας στάλθηκε στον ${user.nickname}!` : res.message,
+    res.ok ? 'success' : 'warning'
+  )
 }
 </script>
 
@@ -432,6 +456,20 @@ function cancelBounty(id) {
   gap: 2px;
   font-size: var(--font-size-sm);
 }
+
+.target-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.add-friend-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-color: rgba(79,195,247,0.35);
+}
+.add-friend-btn:hover { border-color: var(--color-accent); }
 
 /* Fade transition */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }

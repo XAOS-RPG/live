@@ -101,6 +101,7 @@ const extraItems = [
   { to: '/bazaar',       icon: '🏪',  label: 'Παζάρι',         badgeKey: 'bazaar' },
   { to: '/company',      icon: '🏢',  label: 'Εταιρεία',       badgeKey: 'company' },
   { to: '/profile',      icon: '👤',  label: 'Προφίλ',         badgeKey: null },
+  { to: '/friends',      icon: '👥',  label: 'Φίλοι',          badgeKey: 'friends' },
   { to: '/masteries',    icon: '🌳',  label: 'Ικανότητες',     badgeKey: 'masteries' },
   { to: '/settings',     icon: '⚙️',  label: 'Ρυθμίσεις',      badgeKey: null },
 ]

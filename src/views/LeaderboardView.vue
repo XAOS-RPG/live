@@ -28,6 +28,14 @@
           <span class="text-muted lb-sub">Επ. {{ entry.level }} — {{ entry.rankTitle }}</span>
         </div>
         <div class="lb-value text-mono">{{ formatValue(entry.value) }}</div>
+        <button
+          v-if="!entry.isPlayer && entry.uuid && !friendStore.relatedIds.has(entry.uuid)"
+          class="btn btn-sm btn-outline add-friend-btn"
+          :disabled="sendingId === entry.uuid"
+          @click.stop="addFriend(entry)"
+        >
+          {{ sendingId === entry.uuid ? '...' : '+ Φίλος' }}
+        </button>
       </div>
     </div>
   </div>
@@ -37,11 +45,18 @@
 import { ref, computed } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useCombatStore } from '../stores/combatStore'
+import { useFriendStore } from '../stores/friendStore'
+import { useGameStore } from '../stores/gameStore'
+import { useAuthStore } from '../stores/authStore'
 import { fakeUsers } from '../data/fakeUsers'
 
 const player = usePlayerStore()
 const combatStore = useCombatStore()
+const friendStore = useFriendStore()
+const gameStore = useGameStore()
+const auth = useAuthStore()
 const activeTab = ref('level')
+const sendingId = ref(null)
 
 const tabs = [
   { key: 'level', label: 'Επίπεδο', icon: '📈' },
@@ -139,6 +154,18 @@ function formatValue(val) {
   if (activeTab.value === 'winrate') return val + '%'
   return val
 }
+
+async function addFriend(entry) {
+  // Real UUID entries only (fake users have numeric ids)
+  if (!entry.uuid || entry.isPlayer) return
+  sendingId.value = entry.uuid
+  const res = await friendStore.sendRequest(entry.uuid)
+  sendingId.value = null
+  gameStore.addNotification(
+    res.ok ? `Αίτημα φιλίας στάλθηκε στον ${entry.name}!` : res.message,
+    res.ok ? 'success' : 'warning'
+  )
+}
 </script>
 
 <style scoped>
@@ -227,4 +254,12 @@ function formatValue(val) {
   color: var(--color-accent);
   flex-shrink: 0;
 }
+
+.add-friend-btn {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-color: rgba(79,195,247,0.35);
+}
+.add-friend-btn:hover { border-color: var(--color-accent); }
 </style>
