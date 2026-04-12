@@ -24,7 +24,10 @@
         <div class="lb-rank" :class="rankClass(index)">{{ index + 1 }}</div>
         <div class="lb-icon">{{ entry.icon }}</div>
         <div class="lb-info">
-          <strong :class="{ 'text-accent': entry.isPlayer }">{{ entry.name }}</strong>
+          <strong
+            :class="{ 'text-accent': entry.isPlayer, 'clickable-name': entry.uuid && !entry.isPlayer }"
+            @click="goToProfile(entry)"
+          >{{ entry.name }}</strong>
           <span class="text-muted lb-sub">Επ. {{ entry.level }} — {{ entry.rankTitle }}</span>
         </div>
         <div class="lb-value text-mono">{{ formatValue(entry.value) }}</div>
@@ -48,6 +51,7 @@ import { useCombatStore } from '../stores/combatStore'
 import { useFriendStore } from '../stores/friendStore'
 import { useGameStore } from '../stores/gameStore'
 import { useAuthStore } from '../stores/authStore'
+import { useRouter } from 'vue-router'
 import { fakeUsers } from '../data/fakeUsers'
 
 const player = usePlayerStore()
@@ -55,6 +59,7 @@ const combatStore = useCombatStore()
 const friendStore = useFriendStore()
 const gameStore = useGameStore()
 const auth = useAuthStore()
+const router = useRouter()
 const activeTab = ref('level')
 const sendingId = ref(null)
 
@@ -166,6 +171,10 @@ async function addFriend(entry) {
     res.ok ? 'success' : 'warning'
   )
 }
+
+function goToProfile(entry) {
+  if (entry.uuid && !entry.isPlayer) router.push(`/player/${entry.uuid}`)
+}
 </script>
 
 <style scoped>
@@ -254,6 +263,13 @@ async function addFriend(entry) {
   color: var(--color-accent);
   flex-shrink: 0;
 }
+
+.clickable-name {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.clickable-name:hover { color: var(--color-accent); }
 
 .add-friend-btn {
   flex-shrink: 0;

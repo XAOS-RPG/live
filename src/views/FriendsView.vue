@@ -34,10 +34,10 @@
           Δεν έχεις φίλους ακόμα. Στείλε αίτημα από την Κατάταξη ή τα Συμβόλαια!
         </div>
         <div v-for="row in store.friends" :key="row.id" class="card friend-card">
-          <div class="friend-info">
+          <div class="friend-info" style="cursor:pointer" @click="router.push(`/player/${friendId(row)}`)">
             <span class="friend-icon">👤</span>
             <div class="friend-meta">
-              <strong>{{ friendName(row) }}</strong>
+              <strong class="clickable-name">{{ friendName(row) }}</strong>
               <span class="text-muted sub">Επ. {{ friendLevel(row) }}</span>
             </div>
           </div>
@@ -108,6 +108,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useFriendStore } from '../stores/friendStore'
 import { useGameStore } from '../stores/gameStore'
@@ -115,10 +116,16 @@ import { useGameStore } from '../stores/gameStore'
 const store    = useFriendStore()
 const auth     = useAuthStore()
 const game     = useGameStore()
+const router   = useRouter()
 const tab      = ref('friends')
 const busy     = ref(null)
 
 onMounted(() => store.fetchFriends())
+
+function friendId(row) {
+  const me = auth.user?.id
+  return row.user_id === me ? row.friend_id : row.user_id
+}
 
 // Helper: given a row, return the OTHER person's display name
 function friendName(row) {
@@ -242,6 +249,13 @@ async function remove(row) {
   gap: var(--space-xs);
   flex-shrink: 0;
 }
+
+.clickable-name {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.clickable-name:hover { color: var(--color-accent); }
 
 .danger-btn { border-color: rgba(231,76,60,0.35); }
 .danger-btn:hover { border-color: var(--color-danger); color: var(--color-danger); }

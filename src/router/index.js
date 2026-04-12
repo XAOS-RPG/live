@@ -189,6 +189,12 @@ const routes = [
     meta: { allowIncapacitated: true }
   },
   {
+    path: '/player/:id',
+    name: 'public-profile',
+    component: () => import('../views/PublicProfileView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/SettingsView.vue'),
