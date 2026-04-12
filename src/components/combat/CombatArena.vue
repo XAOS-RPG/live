@@ -78,6 +78,10 @@
           <div class="hp-track"><div class="hp-fill" :class="hpCls(pHpPct)" :style="{ width: pHpPct + '%' }"></div></div>
           <span class="hp-num">{{ pHP }}/{{ pMaxHP }}</span>
         </div>
+        <div class="hp-row stamina-row">
+          <div class="hp-track"><div class="hp-fill stamina-fill" :style="{ width: pStaminaPct + '%' }"></div></div>
+          <span class="hp-num">⚡{{ pStamina }}/{{ pStaminaMax }}</span>
+        </div>
       </div>
 
       <!-- ===== ACTION BUTTONS ===== -->
@@ -93,6 +97,20 @@
         </button>
         <button class="act-btn act-guard" @click="act('guard')">
           <span class="ab-icon">🛡️</span><span class="ab-name">Αμυνα</span><span class="ab-sub">-50% ζημιά</span>
+        </button>
+        <button class="act-btn act-rest" @click="act('rest')">
+          <span class="ab-icon">💨</span><span class="ab-name">Ανάσα</span><span class="ab-sub">+{{ STAMINA_REST_REGEN }} Stamina</span>
+        </button>
+        <button
+          v-for="ab in equippedAbilities"
+          :key="ab.id"
+          class="act-btn act-ability"
+          :disabled="pStamina < getAbilityStaminaCost(ab.id, pStaminaMax)"
+          @click="act('ability:' + ab.id)"
+        >
+          <span class="ab-icon">{{ ab.icon }}</span>
+          <span class="ab-name">{{ ab.name }}</span>
+          <span class="ab-sub">⚡{{ getAbilityStaminaCost(ab.id, pStaminaMax) }}</span>
         </button>
       </div>
 
@@ -126,7 +144,8 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { usePlayerStore } from '../../stores/playerStore'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { getItemById } from '../../data/items'
-import { rollItemDrop } from '../../engine/formulas'
+import { rollItemDrop, ABILITY_DEFS, getAbilityStaminaCost, STAMINA_REST_REGEN } from '../../engine/formulas'
+import { useCombatStore } from '../../stores/combatStore'
 
 const props = defineProps({
   opponent: { type: Object, required: true },
@@ -168,6 +187,17 @@ const pHP   = ref(player.resources.hp.current)
 const eHP   = ref(props.opponent.hp)
 const pMaxHP = player.resources.hp.max
 const eMaxHP = props.opponent.hp
+const pStamina = ref(player.resources.stamina?.current ?? 100)
+const pStaminaMax = player.resources.stamina?.max ?? 100
+
+const combatStore = useCombatStore()
+
+// Equipped active abilities with their defs
+const equippedAbilities = computed(() =>
+  player.equippedAbilities
+    .map(id => ABILITY_DEFS[id])
+    .filter(Boolean)
+)
 
 const pAnim = ref('idle')
 const eAnim = ref('idle')
@@ -185,8 +215,9 @@ const logEl = ref(null)
 const won = ref(false)
 const resData = ref(null)
 
-const pHpPct = computed(() => Math.max(0, (pHP.value / pMaxHP) * 100))
-const eHpPct = computed(() => Math.max(0, (eHP.value / eMaxHP) * 100))
+const pHpPct      = computed(() => Math.max(0, (pHP.value / pMaxHP) * 100))
+const eHpPct      = computed(() => Math.max(0, (eHP.value / eMaxHP) * 100))
+const pStaminaPct = computed(() => Math.max(0, (pStamina.value / pStaminaMax) * 100))
 
 function hpCls(p) { return p > 60 ? 'hp-hi' : p > 30 ? 'hp-mid' : 'hp-lo' }
 
@@ -292,6 +323,9 @@ async function execOne(who, action) {
   await sl(350)
   flash.value = null
 
+  // Deduct stamina for player standard attacks
+  if (isP) pStamina.value = Math.max(0, pStamina.value - 10)
+
   const res = calcHit(atkS, action, wpn, defS, dg)
 
   if (res.hit) {
@@ -320,6 +354,79 @@ async function execOne(who, action) {
 async function act(action) {
   if (phase.value !== 'player_turn' || dead) return
   phase.value = 'animating'
+
+  // Handle Rest
+  if (action === 'rest') {
+    const gained = Math.min(pStaminaMax - pStamina.value, 30)
+    pStamina.value = Math.min(pStaminaMax, pStamina.value + 30)
+    addLog(`💨 Ανάσα — +${gained} Stamina`, 'guard')
+    // NPC still attacks during rest
+    const aiAction = aiPick()
+    await execOne('enemy', aiAction)
+    if (!dead && pHP.value <= 0) { pAnim.value = 'ko'; await sl(600); await endFight(false); return }
+    pGuard.value = false; eGuard.value = false
+    pAnim.value = 'idle'; eAnim.value = 'idle'
+    turn.value++
+    if (turn.value > 30) { await endFight(pHP.value / pMaxHP >= eHP.value / eMaxHP); return }
+    phase.value = 'player_turn'
+    return
+  }
+
+  // Handle ability
+  if (action.startsWith('ability:')) {
+    const abilityId = action.slice(8)
+    const def = ABILITY_DEFS[abilityId]
+    const cost = getAbilityStaminaCost(abilityId, pStaminaMax)
+    if (!def || pStamina.value < cost) { phase.value = 'player_turn'; return }
+
+    pStamina.value = Math.max(0, pStamina.value - cost)
+    flash.value = def.icon
+    pAnim.value = 'attacking'
+    await sl(350)
+    flash.value = null
+
+    // Apply ability effects locally
+    if (abilityId === 'vape') {
+      const heal = Math.floor(pMaxHP * 0.2)
+      pHP.value = Math.min(pMaxHP, pHP.value + heal)
+      addPopup('player', `+${heal}`, 'pop-heal')
+      addLog(`💨 Vape — +${heal} HP`, 'player')
+    } else if (abilityId === 'ftysimo') {
+      addPopup('enemy', '☠Φαρμάκι!', 'pop-status')
+      addLog('🫦 Φτύσιμο — Δηλητήριο ενεργό!', 'player')
+    } else if (abilityId === 'kolodaktylo') {
+      addPopup('enemy', '-15% Άμυνα', 'pop-status')
+      addLog('🖕 Κωλοδάχτυλο — Άμυνα αντιπάλου μειώθηκε!', 'player')
+    } else if (abilityId === 'klotsia') {
+      const dmg = Math.floor(pSt.strength * 2.5)
+      eHP.value = Math.max(0, eHP.value - dmg)
+      eAnim.value = 'hit'
+      shake()
+      addPopup('enemy', `💥${dmg}`, 'pop-crit')
+      addPopup('enemy', '⚡STUN', 'pop-status')
+      addLog(`🦵 Κλωτσιά στα @@ — ${dmg} ζημιά + Stun!`, 'player')
+      if (eHP.value <= 0) { eAnim.value = 'ko'; await sl(600); await endFight(true); return }
+      // NPC is stunned — skip their attack this turn
+      pGuard.value = false; eGuard.value = false
+      pAnim.value = 'idle'; eAnim.value = 'idle'
+      turn.value++
+      if (turn.value > 30) { await endFight(pHP.value / pMaxHP >= eHP.value / eMaxHP); return }
+      phase.value = 'player_turn'
+      return
+    }
+
+    await sl(400)
+    // NPC attacks after ability (unless klotsia stun handled above)
+    const aiAction = aiPick()
+    await execOne('enemy', aiAction)
+    if (!dead && pHP.value <= 0) { pAnim.value = 'ko'; await sl(600); await endFight(false); return }
+    pGuard.value = false; eGuard.value = false
+    pAnim.value = 'idle'; eAnim.value = 'idle'
+    turn.value++
+    if (turn.value > 30) { await endFight(pHP.value / pMaxHP >= eHP.value / eMaxHP); return }
+    phase.value = 'player_turn'
+    return
+  }
 
   const aiAction = aiPick()
   const playerFirst = pSt.speed >= eSt.speed
@@ -656,6 +763,23 @@ onBeforeUnmount(() => { dead = true; timers.forEach(clearTimeout) })
 .act-wpn:hover { border-color: #f1c40f; }
 .act-guard { border-color: rgba(52,152,219,0.3); }
 .act-guard:hover { border-color: #3498db; }
+
+.act-rest { border-color: rgba(155,89,182,0.3); }
+.act-rest:hover { border-color: #9b59b6; }
+
+.act-ability { border-color: rgba(241,196,15,0.3); }
+.act-ability:hover:not(:disabled) { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+.act-ability:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.stamina-row { margin-top: 3px; }
+.stamina-fill {
+  height: 100%; border-radius: 5px;
+  background: linear-gradient(90deg, #8e44ad, #9b59b6);
+  transition: width 0.35s ease;
+}
+
+.pop-heal   { color: #2ecc71; font-size: 1.1rem; }
+.pop-status { color: #f39c12; font-size: 0.9rem; }
 
 .wait-bar { text-align: center; font-size: 1.5rem; padding: var(--space-sm); }
 

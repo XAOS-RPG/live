@@ -1,6 +1,57 @@
 export const STAMINA_ATTACK_COST = 10
 export const STAMINA_REST_REGEN = 30
 
+// ─── Active ability definitions ───────────────────────────────────────────────
+export const ABILITY_DEFS = {
+  vape: {
+    id: 'vape', name: 'Vape', icon: '💨',
+    staminaCost: 5,
+    /** Heals player for 20% of their max HP */
+    apply(s) {
+      const heal = Math.floor(s.pMaxHP * 0.2)
+      s.pHP = Math.min(s.pMaxHP, s.pHP + heal)
+      return [{ turn: s.turn, actor: 'player', action: 'ability', abilityId: 'vape', heal }]
+    },
+  },
+  ftysimo: {
+    id: 'ftysimo', name: 'Φτύσιμο', icon: '🫦',
+    staminaCost: 2,
+    /** Applies Poison to NPC: 5 dmg/turn for 3 turns */
+    apply(s) {
+      s.npcStatuses.poison = { dmg: 5, turns: 3 }
+      return [{ turn: s.turn, actor: 'player', action: 'ability', abilityId: 'ftysimo', status: 'poison' }]
+    },
+  },
+  kolodaktylo: {
+    id: 'kolodaktylo', name: 'Κωλοδάχτυλο', icon: '🖕',
+    staminaCost: 8,
+    /** Reduces NPC effective defense by 15% for the rest of the fight */
+    apply(s) {
+      s.npcDefDebuff = (s.npcDefDebuff || 0) + 0.15
+      return [{ turn: s.turn, actor: 'player', action: 'ability', abilityId: 'kolodaktylo', defDebuff: 0.15 }]
+    },
+  },
+  klotsia: {
+    id: 'klotsia', name: 'Κλωτσιά στα @@', icon: '🦵',
+    /** Costs 80% of player max stamina */
+    staminaCostFn: (pStaminaMax) => Math.floor(pStaminaMax * 0.8),
+    /** Huge damage + Stun (NPC skips next turn) */
+    apply(s, pStats, playerWeapon) {
+      const dmg = Math.floor((pStats.strength * 2.5) * (1 - (s.npcDefDebuff || 0)))
+      s.nHP = Math.max(0, s.nHP - dmg)
+      s.npcStatuses.stun = { turns: 1 }
+      return [{ turn: s.turn, actor: 'player', action: 'ability', abilityId: 'klotsia', damage: dmg, status: 'stun' }]
+    },
+  },
+}
+
+/** Returns stamina cost for an ability given current session state */
+export function getAbilityStaminaCost(abilityId, pStaminaMax) {
+  const def = ABILITY_DEFS[abilityId]
+  if (!def) return 0
+  return def.staminaCostFn ? def.staminaCostFn(pStaminaMax) : def.staminaCost
+}
+
 
 export function calculateCrimeSuccess(crime, playerStats, crimeXP, filotimo) {
   const base = crime.baseSuccessRate
@@ -59,15 +110,24 @@ export function resolveCombat(playerStats, playerHP, npc, playerWeapon, npcWeapo
   let pStamina = playerStamina
   let turn = 0
   const MAX_TURNS = 50
+  const npcStatuses = {}
+  let npcDefDebuff = 0
 
   const pStats = { strength: playerStats.strength, speed: playerStats.speed, dexterity: playerStats.dexterity, defense: playerStats.defense }
   const nStats = { strength: npc.stats.strength, speed: npc.stats.speed, dexterity: npc.stats.dexterity, defense: npc.stats.defense }
 
   while (pHP > 0 && nHP > 0 && turn < MAX_TURNS) {
     turn++
-    const playerFirst = pStats.speed >= nStats.speed
 
-    // Player action: attack if enough stamina, else forced rest
+    // Tick NPC poison
+    if (npcStatuses.poison?.turns > 0) {
+      nHP = Math.max(0, nHP - npcStatuses.poison.dmg)
+      log.push({ turn, actor: 'npc', action: 'poison', damage: npcStatuses.poison.dmg })
+      npcStatuses.poison.turns--
+      if (nHP <= 0) break
+    }
+
+    const playerFirst = pStats.speed >= nStats.speed
     const playerAction = pStamina >= STAMINA_ATTACK_COST ? 'attack' : 'rest'
     if (playerAction === 'rest') {
       pStamina = Math.min(100, pStamina + STAMINA_REST_REGEN)
@@ -76,13 +136,19 @@ export function resolveCombat(playerStats, playerHP, npc, playerWeapon, npcWeapo
 
     const attacks = playerFirst
       ? [
-          playerAction === 'attack' ? { type: 'player', atk: pStats, def: nStats, weapon: playerWeapon } : null,
-          { type: 'npc', atk: nStats, def: pStats, weapon: npcWeapon }
+          playerAction === 'attack' ? { type: 'player', atk: pStats, def: { ...nStats, defense: nStats.defense * (1 - npcDefDebuff) }, weapon: playerWeapon } : null,
+          npcStatuses.stun?.turns > 0 ? null : { type: 'npc', atk: nStats, def: pStats, weapon: npcWeapon }
         ]
       : [
-          { type: 'npc', atk: nStats, def: pStats, weapon: npcWeapon },
-          playerAction === 'attack' ? { type: 'player', atk: pStats, def: nStats, weapon: playerWeapon } : null,
+          npcStatuses.stun?.turns > 0 ? null : { type: 'npc', atk: nStats, def: pStats, weapon: npcWeapon },
+          playerAction === 'attack' ? { type: 'player', atk: pStats, def: { ...nStats, defense: nStats.defense * (1 - npcDefDebuff) }, weapon: playerWeapon } : null,
         ]
+
+    // Consume stun
+    if (npcStatuses.stun?.turns > 0) {
+      log.push({ turn, actor: 'npc', action: 'stunned' })
+      npcStatuses.stun.turns--
+    }
 
     for (const entry of attacks) {
       if (!entry) continue

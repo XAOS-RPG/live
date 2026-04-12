@@ -35,6 +35,7 @@ export const usePlayerStore = defineStore('player', {
 
     abilityPoints: 0,
     unlockedAbilities: {},
+    equippedAbilities: [], // max 2 ability ids
 
 
     cash: 500,
@@ -166,6 +167,7 @@ export const usePlayerStore = defineStore('player', {
       this.resources.stamina = { current: 100, max: 100 }
       this.abilityPoints = 0
       this.unlockedAbilities = {}
+      this.equippedAbilities = []
       this.activeActivity = null
       this.pendingResult = null
     },
@@ -347,6 +349,7 @@ export const usePlayerStore = defineStore('player', {
         },
         abilityPoints: this.abilityPoints,
         unlockedAbilities: { ...this.unlockedAbilities },
+        equippedAbilities: [...this.equippedAbilities],
         regenAccumulators: { ...this.regenAccumulators },
         cash: this.cash,
         bank: this.bank,

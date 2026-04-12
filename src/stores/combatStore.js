@@ -1,11 +1,15 @@
 import { defineStore } from 'pinia'
-import { STAMINA_ATTACK_COST, STAMINA_REST_REGEN, calculateCombatDamage, calculateHitChance } from '../engine/formulas'
+import {
+  STAMINA_ATTACK_COST, STAMINA_REST_REGEN,
+  calculateCombatDamage, calculateHitChance,
+  ABILITY_DEFS, getAbilityStaminaCost,
+} from '../engine/formulas'
 
 export const useCombatStore = defineStore('combat', {
   state: () => ({
     combatHistory: [],
-    // Active turn-based session state
-    session: null, // { pHP, pStamina, nHP, npc, log, turn, over, winner }
+    // { pHP, pStamina, pStaminaMax, pMaxHP, nHP, npc, log, turn, over, winner, npcStatuses, npcDefDebuff }
+    session: null,
   }),
 
   getters: {
@@ -23,70 +27,96 @@ export const useCombatStore = defineStore('combat', {
 
   actions: {
     recordHistory({ opponentId, isPvp, won }) {
-      this.combatHistory.push({
-        opponentId,
-        isPvp: isPvp || false,
-        won,
-        timestamp: Date.now(),
-      })
-      if (this.combatHistory.length > 100) {
-        this.combatHistory = this.combatHistory.slice(-100)
+      this.combatHistory.push({ opponentId, isPvp: isPvp || false, won, timestamp: Date.now() })
+      if (this.combatHistory.length > 100) this.combatHistory = this.combatHistory.slice(-100)
+    },
+
+    startSession(pHP, pMaxHP, pStamina, pStaminaMax, npc) {
+      this.session = {
+        pHP, pMaxHP,
+        pStamina, pStaminaMax,
+        nHP: npc.hp,
+        npc,
+        log: [], turn: 0, over: false, winner: null,
+        npcStatuses: {},   // { poison: { dmg, turns }, stun: { turns } }
+        npcDefDebuff: 0,   // cumulative fractional defense reduction
       }
     },
 
-    /** Start a turn-based session. pStamina comes from playerStore.resources.stamina.current */
-    startSession(pHP, pStamina, npc) {
-      this.session = { pHP, pStamina, nHP: npc.hp, npc, log: [], turn: 0, over: false, winner: null }
-    },
-
-    /** Player attacks — costs STAMINA_ATTACK_COST. Returns log entries for this turn. */
     playerAttack(pStats, playerWeapon) {
       if (!this.session || this.session.over) return []
       if (this.session.pStamina < STAMINA_ATTACK_COST) return []
-      return this._resolveTurn(pStats, playerWeapon, 'attack')
+      return this._resolveTurn(pStats, playerWeapon, 'attack', null)
     },
 
-    /** Player rests — skips attack, regens stamina. */
     playerRest(pStats, playerWeapon) {
       if (!this.session || this.session.over) return []
-      return this._resolveTurn(pStats, playerWeapon, 'rest')
+      return this._resolveTurn(pStats, playerWeapon, 'rest', null)
     },
 
-    /** Stub: trigger an equipped active ability by id. */
     useAbility(abilityId, pStats, playerWeapon) {
       if (!this.session || this.session.over) return []
-      // TODO: implement per-ability effects; for now treat as attack
-      console.log(`[ability stub] ${abilityId} triggered`)
-      return this._resolveTurn(pStats, playerWeapon, 'attack')
+      const s = this.session
+      const cost = getAbilityStaminaCost(abilityId, s.pStaminaMax)
+      if (s.pStamina < cost) return []
+      return this._resolveTurn(pStats, playerWeapon, 'ability', abilityId)
     },
 
-    _resolveTurn(pStats, playerWeapon, playerAction) {
+    _resolveTurn(pStats, playerWeapon, playerAction, abilityId) {
       const s = this.session
       const nStats = s.npc.stats
       const npcWeapon = s.npc.weapon || null
       s.turn++
       const entries = []
 
+      // --- Tick NPC poison at start of turn ---
+      if (s.npcStatuses.poison?.turns > 0) {
+        const pdmg = s.npcStatuses.poison.dmg
+        s.nHP = Math.max(0, s.nHP - pdmg)
+        entries.push({ turn: s.turn, actor: 'npc', action: 'poison', damage: pdmg })
+        s.npcStatuses.poison.turns--
+        if (s.nHP <= 0) { s.over = true; s.winner = 'player'; s.log.push(...entries); return entries }
+      }
+
+      // --- Player action ---
       if (playerAction === 'rest') {
-        s.pStamina = Math.min(100, s.pStamina + STAMINA_REST_REGEN)
+        s.pStamina = Math.min(s.pStaminaMax, s.pStamina + STAMINA_REST_REGEN)
         entries.push({ turn: s.turn, actor: 'player', action: 'rest', staminaAfter: s.pStamina })
+
+      } else if (playerAction === 'ability' && abilityId) {
+        const def = ABILITY_DEFS[abilityId]
+        if (def) {
+          const cost = getAbilityStaminaCost(abilityId, s.pStaminaMax)
+          s.pStamina = Math.max(0, s.pStamina - cost)
+          const abilityEntries = def.apply(s, pStats, playerWeapon)
+          entries.push(...abilityEntries)
+          if (s.nHP <= 0) { s.over = true; s.winner = 'player'; s.log.push(...entries); return entries }
+        }
+
       } else {
+        // standard attack
         s.pStamina -= STAMINA_ATTACK_COST
-        const hit = Math.random() < calculateHitChance(pStats, nStats, playerWeapon)
+        const effNpcDef = { ...nStats, defense: nStats.defense * (1 - s.npcDefDebuff) }
+        const hit = Math.random() < calculateHitChance(pStats, effNpcDef, playerWeapon)
         if (hit) {
-          const dmg = calculateCombatDamage(pStats, nStats, playerWeapon)
-          s.nHP -= dmg
+          const dmg = calculateCombatDamage(pStats, effNpcDef, playerWeapon)
+          s.nHP = Math.max(0, s.nHP - dmg)
           entries.push({ turn: s.turn, actor: 'player', action: 'hit', damage: dmg })
+          if (s.nHP <= 0) { s.over = true; s.winner = 'player'; s.log.push(...entries); return entries }
         } else {
           entries.push({ turn: s.turn, actor: 'player', action: 'miss' })
         }
       }
 
-      if (s.nHP > 0) {
+      // --- NPC action (skip if stunned) ---
+      if (s.npcStatuses.stun?.turns > 0) {
+        entries.push({ turn: s.turn, actor: 'npc', action: 'stunned' })
+        s.npcStatuses.stun.turns--
+      } else {
         const hit = Math.random() < calculateHitChance(nStats, pStats, npcWeapon)
         if (hit) {
           const dmg = calculateCombatDamage(nStats, pStats, npcWeapon)
-          s.pHP -= dmg
+          s.pHP = Math.max(0, s.pHP - dmg)
           entries.push({ turn: s.turn, actor: 'npc', action: 'hit', damage: dmg })
         } else {
           entries.push({ turn: s.turn, actor: 'npc', action: 'miss' })
@@ -108,9 +138,7 @@ export const useCombatStore = defineStore('combat', {
     },
 
     getSerializable() {
-      return {
-        combatHistory: this.combatHistory.slice(-100),
-      }
+      return { combatHistory: this.combatHistory.slice(-100) }
     },
 
     hydrate(data) {
