@@ -9,18 +9,21 @@
     >
       <span class="nav-icon-wrap">
         <span class="nav-icon">{{ item.icon }}</span>
-        <span v-if="item.hubBadge && hubUnread" class="nav-badge-dot" aria-hidden="true" />
+        <span v-if="badges[item.badgeKey]?.value" class="nav-badge-dot" aria-hidden="true" />
       </span>
       <span class="nav-label">{{ item.label }}</span>
     </router-link>
 
     <!-- More menu (mobile only) -->
     <div v-if="!vertical" class="nav-item more-toggle" :class="{ active: showMore }" @click="showMore = !showMore">
-      <span class="nav-icon">···</span>
+      <span class="nav-icon-wrap">
+        <span class="nav-icon">···</span>
+        <span v-if="anyExtraBadge" class="nav-badge-dot" aria-hidden="true" />
+      </span>
       <span class="nav-label">Άλλα</span>
     </div>
 
-    <!-- Extra items (sidebar only — mobile uses overlay popup) -->
+    <!-- Extra items (sidebar only) -->
     <template v-if="vertical">
       <router-link
         v-for="item in extraItems"
@@ -31,7 +34,7 @@
       >
         <span class="nav-icon-wrap">
           <span class="nav-icon">{{ item.icon }}</span>
-          <span v-if="item.hubBadge && hubUnread" class="nav-badge-dot" aria-hidden="true" />
+          <span v-if="badges[item.badgeKey]?.value" class="nav-badge-dot" aria-hidden="true" />
         </span>
         <span class="nav-label">{{ item.label }}</span>
       </router-link>
@@ -49,7 +52,10 @@
           class="more-item"
           @click="showMore = false"
         >
-          <span class="more-item-icon">{{ item.icon }}</span>
+          <span class="more-item-icon-wrap">
+            <span class="more-item-icon">{{ item.icon }}</span>
+            <span v-if="badges[item.badgeKey]?.value" class="nav-badge-dot more-badge-dot" aria-hidden="true" />
+          </span>
           <span class="more-item-label">{{ item.label }}</span>
         </router-link>
       </div>
@@ -60,52 +66,52 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useEventsHubStore } from '../../stores/eventsHubStore'
+import { useNavBadges } from '../../composables/useNavBadges'
 
-defineProps({
-  vertical: Boolean
-})
+defineProps({ vertical: Boolean })
 
-const route = useRoute()
+const route    = useRoute()
 const showMore = ref(false)
-const eventsHub = useEventsHubStore()
-const hubUnread = computed(() => eventsHub.hubUnread)
+const badges   = useNavBadges()
 
 const mainItems = [
-  { to: '/', icon: '🏠', label: 'Αρχική' },
-  { to: '/crimes', icon: '🎭', label: 'Εγκλήματα' },
-  { to: '/gym', icon: '💪', label: 'Γυμναστήριο' },
-  { to: '/combat', icon: '⚔️', label: 'Μάχη' },
-  { to: '/events-hub', icon: '📡', label: 'Events Hub', hubBadge: true },
+  { to: '/',           icon: '🏠',  label: 'Αρχική',    badgeKey: 'home' },
+  { to: '/crimes',     icon: '🎭',  label: 'Εγκλήματα', badgeKey: null },
+  { to: '/gym',        icon: '💪',  label: 'Γυμναστήριο', badgeKey: null },
+  { to: '/combat',     icon: '⚔️',  label: 'Μάχη',      badgeKey: null },
+  { to: '/events-hub', icon: '📡',  label: 'Events Hub', badgeKey: 'eventsHub' },
 ]
 
 const extraItems = [
-  { to: '/daily', icon: '📅', label: 'Bonus' },
-  { to: '/missions', icon: '📋', label: 'Αποστολές' },
-  { to: '/achievements', icon: '🏆', label: 'Επιτεύγματα' },
-  { to: '/leaderboard', icon: '🏅', label: 'Κατάταξη' },
-  { to: '/faction', icon: '🏴', label: 'Συμμορία' },
-  { to: '/travel', icon: '✈️', label: 'Ταξίδι' },
-  { to: '/education', icon: '🎓', label: 'Εκπαίδευση' },
-  { to: '/casino', icon: '🎲', label: 'Τυχερά' },
-  { to: '/stocks', icon: '📈', label: 'Χρηματιστήριο' },
-  { to: '/job', icon: '💼', label: 'Δουλειά' },
-  { to: '/property', icon: '🏘️', label: 'Ακίνητα' },
-  { to: '/inventory', icon: '🎒', label: 'Τσέπη' },
-  { to: '/kontres', icon: '🏎️', label: 'Κόντρες' },
-  { to: '/shop', icon: '🛒', label: 'Κατάστημα' },
-  { to: '/bounties', icon: '🎯', label: 'Συμβόλαια' },
-  { to: '/bazaar', icon: '🏪', label: 'Παζάρι' },
-  { to: '/company', icon: '🏢', label: 'Εταιρεία' },
-  { to: '/profile', icon: '👤', label: 'Προφίλ' },
-  { to: '/masteries', icon: '🌳', label: 'Ικανότητες' },
-  { to: '/settings', icon: '⚙️', label: 'Ρυθμίσεις' },
+  { to: '/daily',        icon: '📅',  label: 'Bonus',          badgeKey: 'daily' },
+  { to: '/missions',     icon: '📋',  label: 'Αποστολές',      badgeKey: 'missions' },
+  { to: '/achievements', icon: '🏆',  label: 'Επιτεύγματα',    badgeKey: 'achievements' },
+  { to: '/leaderboard',  icon: '🏅',  label: 'Κατάταξη',       badgeKey: null },
+  { to: '/faction',      icon: '🏴',  label: 'Συμμορία',       badgeKey: null },
+  { to: '/travel',       icon: '✈️',  label: 'Ταξίδι',         badgeKey: null },
+  { to: '/education',    icon: '🎓',  label: 'Εκπαίδευση',     badgeKey: null },
+  { to: '/casino',       icon: '🎲',  label: 'Τυχερά',         badgeKey: null },
+  { to: '/stocks',       icon: '📈',  label: 'Χρηματιστήριο',  badgeKey: null },
+  { to: '/job',          icon: '💼',  label: 'Δουλειά',        badgeKey: 'job' },
+  { to: '/property',     icon: '🏘️',  label: 'Ακίνητα',        badgeKey: null },
+  { to: '/inventory',    icon: '🎒',  label: 'Τσέπη',          badgeKey: null },
+  { to: '/kontres',      icon: '🏎️',  label: 'Κόντρες',        badgeKey: null },
+  { to: '/shop',         icon: '🛒',  label: 'Κατάστημα',      badgeKey: null },
+  { to: '/bounties',     icon: '🎯',  label: 'Συμβόλαια',      badgeKey: null },
+  { to: '/bazaar',       icon: '🏪',  label: 'Παζάρι',         badgeKey: 'bazaar' },
+  { to: '/company',      icon: '🏢',  label: 'Εταιρεία',       badgeKey: 'company' },
+  { to: '/profile',      icon: '👤',  label: 'Προφίλ',         badgeKey: null },
+  { to: '/masteries',    icon: '🌳',  label: 'Ικανότητες',     badgeKey: 'masteries' },
+  { to: '/settings',     icon: '⚙️',  label: 'Ρυθμίσεις',      badgeKey: null },
 ]
 
+// Drives the dot on the "···" button itself
+const anyExtraBadge = computed(() =>
+  extraItems.some(item => item.badgeKey && badges[item.badgeKey]?.value)
+)
+
 function isRouteActive(path) {
-  if (path === '/events-hub') {
-    return route.path === '/events-hub' || route.path === '/newspaper'
-  }
+  if (path === '/events-hub') return route.path === '/events-hub' || route.path === '/newspaper'
   return route.path === path
 }
 </script>
@@ -134,9 +140,7 @@ function isRouteActive(path) {
   -webkit-tap-highlight-color: transparent;
 }
 
-.nav-horizontal .nav-item.active {
-  color: var(--color-accent);
-}
+.nav-horizontal .nav-item.active { color: var(--color-accent); }
 
 .nav-icon-wrap {
   position: relative;
@@ -145,10 +149,7 @@ function isRouteActive(path) {
   justify-content: center;
 }
 
-.nav-horizontal .nav-icon {
-  font-size: 20px;
-  line-height: 1;
-}
+.nav-horizontal .nav-icon { font-size: 20px; line-height: 1; }
 
 .nav-badge-dot {
   position: absolute;
@@ -159,6 +160,12 @@ function isRouteActive(path) {
   border-radius: 50%;
   background: #e53935;
   box-shadow: 0 0 0 2px var(--bg-surface, #1a1a2e);
+  animation: badgePulse 2s ease infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.3); opacity: 0.8; }
 }
 
 .nav-horizontal .nav-label {
@@ -197,21 +204,9 @@ function isRouteActive(path) {
   background: rgba(79, 195, 247, 0.05);
 }
 
-.nav-vertical .nav-icon-wrap {
-  width: 24px;
-  justify-content: center;
-}
-
-.nav-vertical .nav-icon {
-  font-size: 18px;
-  width: 24px;
-  text-align: center;
-}
-
-.nav-vertical .nav-badge-dot {
-  right: -2px;
-}
-
+.nav-vertical .nav-icon-wrap { width: 24px; justify-content: center; }
+.nav-vertical .nav-icon { font-size: 18px; width: 24px; text-align: center; }
+.nav-vertical .nav-badge-dot { right: -2px; }
 .nav-vertical .nav-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -255,13 +250,22 @@ function isRouteActive(path) {
   min-height: 60px;
 }
 
-.more-item:hover {
-  background: var(--bg-surface-raised);
+.more-item:hover { background: var(--bg-surface-raised); }
+
+.more-item-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.more-item-icon {
-  font-size: 26px;
-  line-height: 1;
+.more-item-icon { font-size: 26px; line-height: 1; }
+
+.more-badge-dot {
+  top: -3px;
+  right: -5px;
+  width: 9px;
+  height: 9px;
 }
 
 .more-item-label {
@@ -274,7 +278,5 @@ function isRouteActive(path) {
   max-width: 100%;
 }
 
-.more-toggle {
-  position: relative;
-}
+.more-toggle { position: relative; }
 </style>
