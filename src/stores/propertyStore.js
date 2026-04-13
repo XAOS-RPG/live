@@ -115,6 +115,21 @@ export const usePropertyStore = defineStore('property', {
       return true
     },
 
+    grantPatriko(locationId = 'athens') {
+      if (this.properties.length > 0) return
+      const instance = {
+        instanceId: createInstanceId(),
+        propertyId: 'patriko',
+        locationId,
+        isRented: false,
+        lastRentPaid: safeNow(),
+        vaultCash: 0,
+        stash: {},
+      }
+      this.properties.push(instance)
+      this.activeInstanceId = instance.instanceId
+    },
+
     buyProperty(propertyId, locationId) {
       const property = getPropertyById(propertyId)
       if (!property) return false
@@ -304,6 +319,12 @@ export const usePropertyStore = defineStore('property', {
             player.logActivity(`🚫 Έξωση από ${property.name}`, 'danger')
           }
         }
+      }
+
+      // Apply Πατρικό Σπίτι happiness debuff
+      if (this.activeProperty?.id === 'patriko') {
+        player.modifyResource('happiness', -10 * elapsedDays)
+        gameStore.addNotification('Η γκρίνια της μάνας σου για το πότε θα βρεις σοβαρή δουλειά σου ρίχνει το κέφι.', 'warning')
       }
 
       this.lastRentCheckAt = now

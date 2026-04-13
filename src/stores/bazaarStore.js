@@ -47,6 +47,7 @@ export const useBazaarStore = defineStore('bazaar', {
     // Track which fake listings the player has already bought (by listing id)
     boughtFakeIds: [],
     nextId: 1,
+    lastBazaarTick: null,
   }),
 
   getters: {
@@ -56,10 +57,7 @@ export const useBazaarStore = defineStore('bazaar', {
     },
 
     pendingSales(state) {
-      // Listings that have been "sold" (auto-filled after delay) — simplified:
-      // we consider a listing "sold" if it's been up for more than 5 minutes
-      const now = Date.now()
-      return state.myListings.filter(l => now - l.postedAt >= 5 * 60 * 1000 && !l.collected)
+      return state.myListings.filter(l => l.sold && !l.collected)
     },
   },
 
@@ -102,6 +100,30 @@ export const useBazaarStore = defineStore('bazaar', {
       return listing.price * listing.quantity
     },
 
+    tickBazaar() {
+      const TICK_INTERVAL = 15 * 60 * 1000
+      const RARITY_CHANCE = { common: 0.70, uncommon: 0.50, rare: 0.30, epic: 0.15, legendary: 0.05 }
+
+      const now = Date.now()
+      if (this.lastBazaarTick && now - this.lastBazaarTick < TICK_INTERVAL) return
+      this.lastBazaarTick = now
+
+      for (const listing of this.myListings) {
+        if (listing.sold || listing.collected) continue
+
+        const itemData = items.find(i => i.id === listing.itemId)
+        const basePrice = itemData?.sellPrice || 1
+        const priceRatio = listing.price / basePrice
+        const priceMultiplier = priceRatio <= 1.5 ? 1.0 : priceRatio <= 2.5 ? 0.5 : 0.0
+        const baseChance = RARITY_CHANCE[listing.itemRarity] ?? RARITY_CHANCE.common
+        const finalChance = baseChance * priceMultiplier
+
+        if (Math.random() < finalChance) {
+          listing.sold = true
+        }
+      }
+    },
+
     buyFakeListing(listingId) {
       if (!this.boughtFakeIds.includes(listingId)) {
         this.boughtFakeIds.push(listingId)
@@ -113,6 +135,7 @@ export const useBazaarStore = defineStore('bazaar', {
         myListings: this.myListings.map(l => ({ ...l })),
         boughtFakeIds: [...this.boughtFakeIds],
         nextId: this.nextId,
+        lastBazaarTick: this.lastBazaarTick,
       }
     },
 
@@ -121,6 +144,7 @@ export const useBazaarStore = defineStore('bazaar', {
       if (data.myListings) this.myListings = data.myListings
       if (data.boughtFakeIds) this.boughtFakeIds = data.boughtFakeIds
       if (data.nextId) this.nextId = data.nextId
+      if (data.lastBazaarTick !== undefined) this.lastBazaarTick = data.lastBazaarTick
     },
   },
 })

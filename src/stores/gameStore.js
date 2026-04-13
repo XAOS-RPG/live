@@ -317,6 +317,9 @@ export const useGameStore = defineStore('game', {
         // Update stock prices
         stockStore.tickPrices()
 
+        // Bazaar RNG sell tick (every 15 min)
+        useBazaarStore().tickBazaar()
+
         // Auto-save
         if (now - lastSave >= AUTO_SAVE_INTERVAL_MS) {
           this.saveGame()

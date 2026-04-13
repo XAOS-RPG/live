@@ -1,5 +1,29 @@
 export const properties = [
   {
+    id: 'patriko',
+    name: 'Πατρικό Σπίτι',
+    localNames: {
+      athens: 'Πατρικό Σπίτι',
+      thessaloniki: 'Πατρικό Σπίτι',
+      patras: 'Πατρικό Σπίτι',
+      heraklion: 'Πατρικό Σπίτι',
+      mykonos: 'Πατρικό Σπίτι',
+      santorini: 'Πατρικό Σπίτι',
+      corfu: 'Πατρικό Σπίτι',
+    },
+    description: 'Ζεις με τους γονείς σου. Δωρεάν, αλλά με κόστος στην ψυχική υγεία.',
+    icon: '🏡',
+    buyPrice: 0,
+    sellPrice: 0,
+    rentPrice: 0,
+    happinessBonus: 0,
+    vaultCapacity: 1000,
+    itemCapacity: 10,
+    tier: 0,
+    isDefault: true,
+    requirements: { level: 0 },
+  },
+  {
     id: 'studio_omonoia',
     name: 'Γκαρσονιέρα Ομόνοιας',
     localNames: {

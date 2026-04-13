@@ -1,6 +1,7 @@
 export const jobs = [
   {
     id: 'army', name: 'Στρατός', description: 'Υπηρετείς στον Ελληνικό Στρατό.', icon: '🎖️',
+    city: 'athens',
     baseSalary: 150,
     statBonuses: { strength: 0.3, defense: 0.2 },
     passiveBonus: { type: 'nerve_max', value: 2, desc: '+2 Μέγ. Θράσος' },
@@ -15,6 +16,7 @@ export const jobs = [
   },
   {
     id: 'police', name: 'Αστυνομία', description: 'Υπηρετείς στην Ελληνική Αστυνομία.', icon: '👮',
+    city: 'athens',
     baseSalary: 180,
     statBonuses: { speed: 0.2, dexterity: 0.2 },
     passiveBonus: { type: 'filotimo', value: 1, desc: '+1 Φιλότιμο/εργασία' },
@@ -29,6 +31,7 @@ export const jobs = [
   },
   {
     id: 'hospital_job', name: 'Νοσοκομείο', description: 'Εργάζεσαι στο νοσοκομείο.', icon: '🏥',
+    city: 'athens',
     baseSalary: 200,
     statBonuses: { dexterity: 0.3 },
     passiveBonus: { type: 'hp_regen', value: 1, desc: 'Ταχύτερη ανάρρωση' },
@@ -43,6 +46,7 @@ export const jobs = [
   },
   {
     id: 'restaurant', name: 'Εστιατόριο', description: 'Δουλεύεις σε ταβέρνα στην Πλάκα.', icon: '🍽️',
+    city: 'athens',
     baseSalary: 120,
     statBonuses: { speed: 0.3 },
     passiveBonus: { type: 'happiness', value: 5, desc: '+5 Κέφι/εργασία' },
@@ -57,6 +61,7 @@ export const jobs = [
   },
   {
     id: 'shipping', name: 'Ναυτιλιακή', description: 'Δουλεύεις σε ναυτιλιακή στον Πειραιά.', icon: '🚢',
+    city: 'athens',
     baseSalary: 250,
     statBonuses: { strength: 0.2, defense: 0.2 },
     passiveBonus: { type: 'meson', value: 1, desc: '+1 Μέσον/εργασία' },
@@ -71,6 +76,7 @@ export const jobs = [
   },
   {
     id: 'farming', name: 'Αγροτικά', description: 'Δουλεύεις σε ελαιώνες στην Κρήτη.', icon: '🫒',
+    city: 'heraklion',
     baseSalary: 100,
     statBonuses: { strength: 0.4 },
     passiveBonus: { type: 'energy_max', value: 5, desc: '+5 Μέγ. Ενέργεια' },
@@ -85,6 +91,7 @@ export const jobs = [
   },
   {
     id: 'tourism', name: 'Τουρισμός', description: 'Εργάζεσαι στον τουρισμό στη Μύκονο.', icon: '🏖️',
+    city: 'mykonos',
     baseSalary: 160,
     statBonuses: { dexterity: 0.2, speed: 0.1 },
     passiveBonus: { type: 'cash_bonus', value: 10, desc: '+10% μπόνους μισθού' },

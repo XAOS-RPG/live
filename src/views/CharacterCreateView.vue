@@ -80,11 +80,13 @@ import { ref, computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../stores/playerStore'
 import { useGameStore } from '../stores/gameStore'
+import { usePropertyStore } from '../stores/propertyStore'
 import { STAT_POINTS_AT_CREATION } from '../data/constants'
 
 const router = useRouter()
 const playerStore = usePlayerStore()
 const gameStore = useGameStore()
+const propertyStore = usePropertyStore()
 
 const name = ref('')
 const gender = ref('male') // Default επιλογή
@@ -131,6 +133,7 @@ function create() {
 
   // Στέλνουμε ΚΑΙ το φύλο στο Store
   playerStore.initializeCharacter(name.value.trim(), gender.value, { ...allocation })
+  propertyStore.grantPatriko()
   gameStore.setInitialized()
   gameStore.startGameLoop()
   gameStore.addNotification(`Καλώς ήρθες, ${name.value.trim()}! Το χάος ξεκίνησε.`, 'success')

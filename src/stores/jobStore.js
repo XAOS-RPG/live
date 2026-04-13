@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { getJobById } from '../data/jobs'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
+import { useTravelStore } from './travelStore'
 import { WORK_COOLDOWN_MS } from '../data/constants'
 
 export const useJobStore = defineStore('job', {
@@ -9,6 +10,7 @@ export const useJobStore = defineStore('job', {
     currentJobId: null,
     workStats: 0,
     lastWorked: null,
+    lastPayday: null,
   }),
 
   getters: {
@@ -36,15 +38,32 @@ export const useJobStore = defineStore('job', {
       return null
     },
 
+    isInJobCity() {
+      if (!this.currentJob) return true
+      return useTravelStore().currentLocation === this.currentJob.city
+    },
+
     canWork() {
       if (!this.currentJobId) return false
+      if (!this.isInJobCity) return false
       if (!this.lastWorked) return true
       return Date.now() - this.lastWorked >= WORK_COOLDOWN_MS
+    },
+
+    canCollectSalary() {
+      if (!this.currentJobId) return false
+      if (!this.lastPayday) return true
+      return Date.now() - this.lastPayday >= 24 * 60 * 60 * 1000
     },
 
     timeUntilWork() {
       if (!this.lastWorked) return 0
       return Math.max(0, WORK_COOLDOWN_MS - (Date.now() - this.lastWorked))
+    },
+
+    timeUntilPayday() {
+      if (!this.lastPayday) return 0
+      return Math.max(0, 24 * 60 * 60 * 1000 - (Date.now() - this.lastPayday))
     },
 
     currentSalary() {
@@ -75,6 +94,7 @@ export const useJobStore = defineStore('job', {
       this.currentJobId = jobId
       this.workStats = 0
       this.lastWorked = null
+      if (!this.lastPayday) this.lastPayday = Date.now()
       gameStore.addNotification(`Προσλήφθηκες: ${job.name}!`, 'success')
       player.logActivity(`💼 Νέα δουλειά: ${job.name}`, 'info')
       gameStore.saveGame()
@@ -95,9 +115,10 @@ export const useJobStore = defineStore('job', {
         return false
       }
 
-      // Earn salary
-      const salary = this.currentSalary
-      player.addCash(salary)
+      if (!this.isInJobCity) {
+        gameStore.addNotification('Πρέπει να επιστρέψεις στην πόλη της δουλειάς σου.', 'warning')
+        return false
+      }
 
       // Gain work stats
       this.workStats += 1
@@ -124,8 +145,17 @@ export const useJobStore = defineStore('job', {
 
       this.lastWorked = Date.now()
 
-      player.logActivity(`💼 ${job.name}: +€${salary}`, 'cash')
-      gameStore.addNotification(`Δούλεψες! +€${salary}`, 'cash')
+      // Earn salary only once per 24h
+      if (this.canCollectSalary) {
+        const salary = this.currentSalary
+        player.addCash(salary)
+        this.lastPayday = Date.now()
+        player.logActivity(`💼 ${job.name}: +€${salary}`, 'cash')
+        gameStore.addNotification(`Δούλεψες! +€${salary}`, 'cash')
+      } else {
+        player.logActivity(`💼 ${job.name}: Δούλεψες (χωρίς μισθό ακόμα)`, 'info')
+        gameStore.addNotification('Δούλεψες! Ο μισθός είναι διαθέσιμος μία φορά/24ω.', 'info')
+      }
       gameStore.saveGame()
       return true
     },
@@ -137,6 +167,7 @@ export const useJobStore = defineStore('job', {
       this.currentJobId = null
       this.workStats = 0
       this.lastWorked = null
+      // lastPayday intentionally NOT reset — timer carries over to next job
       player.logActivity(`💼 Παραιτήθηκε από ${jobName}`, 'info')
       gameStore.addNotification('Παραιτήθηκες!', 'warning')
       gameStore.saveGame()
@@ -147,6 +178,7 @@ export const useJobStore = defineStore('job', {
         currentJobId: this.currentJobId,
         workStats: this.workStats,
         lastWorked: this.lastWorked,
+        lastPayday: this.lastPayday,
       }
     },
 
@@ -155,6 +187,7 @@ export const useJobStore = defineStore('job', {
       if (data.currentJobId !== undefined) this.currentJobId = data.currentJobId
       if (data.workStats !== undefined) this.workStats = data.workStats
       if (data.lastWorked !== undefined) this.lastWorked = data.lastWorked
+      if (data.lastPayday !== undefined) this.lastPayday = data.lastPayday
     },
   }
 })

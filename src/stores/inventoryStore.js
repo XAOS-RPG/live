@@ -128,9 +128,16 @@ export const useInventoryStore = defineStore('inventory', {
         if (item.energyBoost) {
           player.modifyResource('energy', item.energyBoost)
         }
+        if (item.strengthBoost) {
+          player.trainStat('strength', item.strengthBoost)
+        }
         this.removeItem(itemId, 1)
-        gameStore.addNotification(`Χρησιμοποίησες ${item.name} (+${item.happinessBoost || 0} Κέφι)`, 'info')
-        player.logActivity(`${item.icon} ${item.name}`, 'info')
+        const parts = []
+        if (item.happinessBoost) parts.push(`+${item.happinessBoost} Κέφι`)
+        if (item.strengthBoost) parts.push(`+${item.strengthBoost} Δύναμη`)
+        const detail = parts.length ? ` (${parts.join(', ')})` : ''
+        gameStore.addNotification(`Χρησιμοποίησες ${item.name}${detail}`, 'info')
+        player.logActivity(`${item.icon} ${item.name}${detail}`, 'info')
         return true
       }
 
