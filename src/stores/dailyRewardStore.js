@@ -1,9 +1,60 @@
 import { defineStore } from 'pinia'
-import { dailyRewards } from '../data/dailyRewards'
 import { usePlayerStore } from './playerStore'
 import { useInventoryStore } from './inventoryStore'
 import { useGameStore } from './gameStore'
 import { usePropertyStore } from './propertyStore'
+
+// ── Κουτί του Δρόμου — loot table ────────────────────────────────────────────
+export const CRATE_TIERS = {
+  common: {
+    label: 'Κοινό', color: '#95a5a6', chance: 0.70,
+    items: [
+      { id: 'water_bottle',  name: 'Νερό',        icon: '💧' },
+      { id: 'toast_bag',     name: 'Τοστ',        icon: '🥪' },
+      { id: 'beer_can',      name: 'Μπύρα',       icon: '🍺' },
+      { id: 'cigarettes',    name: 'Τσιγάρα',     icon: '🚬' },
+      { id: 'bandages',      name: 'Γάζες',       icon: '🩹' },
+      { id: 'chewing_gum',   name: 'Τσίχλα',      icon: '🫧' },
+      { id: 'chocolate',     name: 'Σοκολάτα',    icon: '🍫' },
+    ],
+  },
+  rare: {
+    label: 'Σπάνιο', color: '#3498db', chance: 0.25,
+    items: [
+      { id: 'steroids',      name: 'Στεροειδή',   icon: '💪' },
+      { id: 'cocaine',       name: 'Κοκαΐνη',     icon: '❄️' },
+      { id: 'mat_iron',      name: 'Σίδερο',      icon: '🔩' },
+      { id: 'painkillers',   name: 'Παυσίπονα',   icon: '💊' },
+      { id: 'first_aid',     name: 'Κιτ Πρώτων Βοηθειών', icon: '🏥' },
+      { id: 'switchblade',   name: 'Σουγιάς',     icon: '🗡️' },
+    ],
+  },
+  legendary: {
+    label: 'Θρυλικό', color: '#f39c12', chance: 0.05,
+    items: [
+      { id: 'adrenaline',    name: 'Αδρεναλίνη',  icon: '💉' },
+      { id: 'mat_kevlar',    name: 'Κέβλαρ',      icon: '🛡️' },
+      { id: 'ak47',          name: 'AK-47',        icon: '🔫' },
+      { id: 'surgical_kit',  name: 'Χειρουργικό Κιτ', icon: '🏥' },
+    ],
+  },
+}
+
+export function rollCrate() {
+  const r = Math.random()
+  let tier
+  if (r < CRATE_TIERS.legendary.chance) {
+    tier = 'legendary'
+  } else if (r < CRATE_TIERS.legendary.chance + CRATE_TIERS.rare.chance) {
+    tier = 'rare'
+  } else {
+    tier = 'common'
+  }
+  const pool = CRATE_TIERS[tier].items
+  const item = pool[Math.floor(Math.random() * pool.length)]
+  return { tier, ...item }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 const AMBUSH_ATTACKERS = [
   'Άγνωστος μπράτσος',
@@ -32,17 +83,8 @@ export const useDailyRewardStore = defineStore('dailyReward', {
       return this.lastClaimDate !== today
     },
 
-    currentDay() {
-      // Which day of the 7-day cycle (0-indexed into dailyRewards)
-      return this.currentStreak % 7
-    },
-
-    nextReward() {
-      return dailyRewards[this.currentDay]
-    },
-
     streakDay() {
-      return this.currentStreak % 7 + 1
+      return this.currentStreak + 1
     },
   },
 
@@ -104,35 +146,38 @@ export const useDailyRewardStore = defineStore('dailyReward', {
       const inventory = useInventoryStore()
       const gameStore = useGameStore()
 
-      // Check if streak continues (claimed yesterday)
+      // Streak continuity check
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       const yesterdayStr = yesterday.toISOString().split('T')[0]
-
       if (this.lastClaimDate === yesterdayStr) {
         this.currentStreak++
       } else if (this.lastClaimDate !== null) {
-        // Streak broken
         this.currentStreak = 0
       }
 
-      const reward = dailyRewards[this.currentStreak % 7]
+      // Roll the crate
+      const drop = rollCrate()
+      inventory.addItem(drop.id, 1)
 
-      // Give rewards
-      if (reward.cash) player.addCash(reward.cash)
-      if (reward.xp) player.addXP(reward.xp)
-      if (reward.itemId) inventory.addItem(reward.itemId, 1)
+      // Streak bonus cash (scales with streak)
+      const streakBonus = Math.min(this.currentStreak, 30) * 50
+      const baseCash = 100
+      const totalCash = baseCash + streakBonus
+      player.addCash(totalCash)
+      player.addXP(20 + this.currentStreak * 2)
 
       this.lastClaimDate = new Date().toISOString().split('T')[0]
       this.totalLogins++
       this.maxStreak = Math.max(this.maxStreak, this.currentStreak + 1)
       this.pendingReward = false
 
-      gameStore.addNotification(`Ημερήσιο Bonus! ${reward.label}`, 'success')
-      player.logActivity(`📅 Ημερήσιο Bonus: ${reward.label}`, 'cash')
+      const tierLabel = CRATE_TIERS[drop.tier].label
+      gameStore.addNotification(`📦 Κουτί του Δρόμου: ${drop.icon} ${drop.name} (${tierLabel})!`, 'success')
+      player.logActivity(`📦 Κουτί Δρόμου: ${drop.icon} ${drop.name} [${tierLabel}] +€${totalCash}`, 'cash')
       gameStore.saveGame()
 
-      return reward
+      return { ...drop, cash: totalCash, streak: this.currentStreak }
     },
 
     getSerializable() {
