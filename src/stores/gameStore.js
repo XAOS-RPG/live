@@ -26,6 +26,7 @@ import { usePetStore } from './petStore'
 import { useCraftingStore } from './craftingStore'
 import { useLoanStore } from './loanStore'
 import { usePrestigeStore } from './prestigeStore'
+import { useEliteStore } from './eliteStore'
 
 let toastId = 0
 
@@ -107,6 +108,7 @@ export const useGameStore = defineStore('game', {
             crafting: useCraftingStore().getSerializable(),
             loan: useLoanStore().getSerializable(),
             prestige: usePrestigeStore().getSerializable(),
+            elite: useEliteStore().getSerializable(),
           }
         }
 
@@ -243,6 +245,9 @@ export const useGameStore = defineStore('game', {
         if (saveData.stores.prestige) {
           usePrestigeStore().hydrate(saveData.stores.prestige)
         }
+        if (saveData.stores.elite) {
+          useEliteStore().hydrate(saveData.stores.elite)
+        }
 
         // Calculate offline progress
         const elapsed = Math.min(MAX_OFFLINE_MS, Date.now() - (saveData.timestamp || Date.now()))
@@ -357,6 +362,11 @@ export const useGameStore = defineStore('game', {
 
         // Pet happiness decay / abandonment check
         usePetStore().tickPets()
+
+        // Elite Ascension ticks
+        const eliteStore = useEliteStore()
+        eliteStore.tickHenchmen(now)
+        eliteStore.tickInfluence(delta)
 
         // Auto-save
         if (now - lastSave >= AUTO_SAVE_INTERVAL_MS) {

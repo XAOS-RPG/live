@@ -146,7 +146,7 @@ const categories = [
       { to: '/masteries', icon: '🌳',  label: 'Ικανότητες',  badgeKey: 'masteries' },
       { to: '/daily',     icon: '📅',  label: 'Bonus',       badgeKey: 'daily' },
       { to: '/missions',  icon: '📋',  label: 'Αποστολές',   badgeKey: 'missions' },
-      { to: '/prestige', icon: '🌟',  label: 'Αναγέννηση',  badgeKey: null },
+      { to: '/elite',    icon: '👑',  label: 'Elite',       badgeKey: null },
     ],
   },
 ]

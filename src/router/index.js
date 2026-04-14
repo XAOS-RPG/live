@@ -219,10 +219,14 @@ const routes = [
     meta: { allowIncapacitated: true }
   },
   {
-    path: '/prestige',
-    name: 'prestige',
-    component: () => import('../views/PrestigeView.vue'),
+    path: '/elite',
+    name: 'elite',
+    component: () => import('../views/EliteMenu.vue'),
     meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/prestige',
+    redirect: '/elite',
   },
   {
     path: '/settings',
