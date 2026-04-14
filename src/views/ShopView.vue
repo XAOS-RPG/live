@@ -135,9 +135,10 @@ const marketCat = ref('all')
 const blackCat = ref('all')
 
 const marketCategories = [
-  { key: 'all', label: 'Όλα' },
-  { key: 'armor', label: '🛡️ Πανοπλία' },
-  { key: 'medical', label: '💊 Ιατρικά' },
+  { key: 'all',      label: 'Όλα' },
+  { key: 'armor',    label: '🛡️ Πανοπλία' },
+  { key: 'medical',  label: '💊 Ιατρικά' },
+  { key: 'material', label: '🧰 Υλικά' },
 ]
 
 const blackCategories = [
@@ -148,8 +149,8 @@ const blackCategories = [
 
 const allBuyable = getBuyableItems()
 
-// Legal items: armor & medical
-const marketItems = allBuyable.filter(i => i.type === 'armor' || i.type === 'medical')
+// Legal items: armor, medical & buyable materials
+const marketItems = allBuyable.filter(i => i.type === 'armor' || i.type === 'medical' || i.type === 'material')
 
 // Illegal items: weapons & drugs
 const blackItems = allBuyable.filter(i => i.type === 'weapon' || i.type === 'drug')

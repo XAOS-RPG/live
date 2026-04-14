@@ -13,15 +13,13 @@ export const crimes = [
     tier: 1,
     icon: '🏪',
     duration: 60000,
-    // Two variants — player chooses before starting
     variants: [
       {
         id: 'item',
         label: 'Αντικείμενο',
         description: 'Αρπάζεις γρήγορα κάτι από τα ράφια. Εύκολο — αρκεί 2+ στο ζάρι.',
-        baseSuccessRate: 0.833, // d6 target = 2 (need 2,3,4,5,6)
+        baseSuccessRate: 0.833,
         rewards: { cashMin: 0, cashMax: 0, crimeXP: 1, xp: 2 },
-        // Guaranteed random item from kiosk pool on success
         guaranteedItemPool: [
           'chocolate', 'water_bottle', 'soda_can', 'beer_can',
           'toast_bag', 'chewing_gum', 'cigarettes', 'lighter',
@@ -33,7 +31,7 @@ export const crimes = [
         id: 'cash',
         label: 'Λεφτά',
         description: 'Αποσπάς την προσοχή του και αδειάζεις το ταμείο. Δυσκολότερο — χρειάζεσαι 4+ στο ζάρι.',
-        baseSuccessRate: 0.50, // d6 target = 4 (need 4,5,6)
+        baseSuccessRate: 0.50,
         rewards: { cashMin: 5, cashMax: 30, crimeXP: 1, xp: 2 },
         guaranteedItemPool: null,
         possibleItemDrops: [],
@@ -54,6 +52,7 @@ export const crimes = [
     failure: { jailTimeMin: 120000, jailTimeMax: 300000, jailChance: 0.5 },
     possibleItemDrops: [
       { itemId: 'watch_cheap', chance: 0.06 },
+      { itemId: 'mat_fabric',  chance: 0.15 },
     ],
     filotimoChange: -1,
     requiredCrimeXP: 5,
@@ -73,8 +72,10 @@ export const crimes = [
     rewards: { cashMin: 50, cashMax: 250, crimeXP: 4, xp: 8 },
     failure: { jailTimeMin: 180000, jailTimeMax: 480000, jailChance: 0.6 },
     possibleItemDrops: [
-      { itemId: 'car_radio', chance: 0.10 },
-      { itemId: 'sunglasses', chance: 0.05 },
+      { itemId: 'car_radio',   chance: 0.10 },
+      { itemId: 'sunglasses',  chance: 0.05 },
+      { itemId: 'mat_iron',    chance: 0.20 },
+      { itemId: 'mat_fuel',    chance: 0.15 },
     ],
     filotimoChange: -2,
     requiredCrimeXP: 15,
@@ -94,8 +95,10 @@ export const crimes = [
     rewards: { cashMin: 100, cashMax: 500, crimeXP: 6, xp: 15 },
     failure: { jailTimeMin: 300000, jailTimeMax: 600000, jailChance: 0.65 },
     possibleItemDrops: [
-      { itemId: 'jewelry', chance: 0.08 },
-      { itemId: 'laptop', chance: 0.06 },
+      { itemId: 'jewelry',         chance: 0.08 },
+      { itemId: 'laptop',          chance: 0.06 },
+      { itemId: 'mat_electronics', chance: 0.20 },
+      { itemId: 'mat_wood',        chance: 0.15 },
     ],
     filotimoChange: -3,
     requiredCrimeXP: 40,
@@ -115,7 +118,9 @@ export const crimes = [
     rewards: { cashMin: 200, cashMax: 1000, crimeXP: 10, xp: 25 },
     failure: { jailTimeMin: 480000, jailTimeMax: 900000, jailChance: 0.7 },
     possibleItemDrops: [
-      { itemId: 'pistol_small', chance: 0.04 },
+      { itemId: 'pistol_small',  chance: 0.04 },
+      { itemId: 'mat_iron',      chance: 0.25 },
+      { itemId: 'mat_wood',      chance: 0.20 },
     ],
     filotimoChange: -4,
     requiredCrimeXP: 80,
@@ -136,6 +141,8 @@ export const crimes = [
     failure: { jailTimeMin: 600000, jailTimeMax: 1200000, jailChance: 0.75 },
     possibleItemDrops: [
       { itemId: 'cigarette_carton', chance: 0.12 },
+      { itemId: 'mat_fuel',         chance: 0.20 },
+      { itemId: 'mat_chemicals',    chance: 0.15 },
     ],
     filotimoChange: -3,
     requiredCrimeXP: 150,
@@ -154,7 +161,11 @@ export const crimes = [
     expWeight: 0.6,
     rewards: { cashMin: 800, cashMax: 4000, crimeXP: 22, xp: 60 },
     failure: { jailTimeMin: 900000, jailTimeMax: 1800000, jailChance: 0.8 },
-    possibleItemDrops: [],
+    possibleItemDrops: [
+      { itemId: 'mat_fuel',      chance: 0.35 },
+      { itemId: 'mat_chemicals', chance: 0.20 },
+      { itemId: 'mat_iron',      chance: 0.15 },
+    ],
     filotimoChange: -5,
     requiredCrimeXP: 300,
     tier: 7,
@@ -173,8 +184,10 @@ export const crimes = [
     rewards: { cashMin: 1500, cashMax: 8000, crimeXP: 35, xp: 100 },
     failure: { jailTimeMin: 1200000, jailTimeMax: 2400000, jailChance: 0.85 },
     possibleItemDrops: [
-      { itemId: 'ancient_coin', chance: 0.06 },
-      { itemId: 'ancient_vase', chance: 0.03 },
+      { itemId: 'ancient_coin',  chance: 0.06 },
+      { itemId: 'ancient_vase',  chance: 0.03 },
+      { itemId: 'mat_kevlar',    chance: 0.12 },
+      { itemId: 'mat_iron',      chance: 0.20 },
     ],
     filotimoChange: -8,
     requiredCrimeXP: 500,

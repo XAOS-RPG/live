@@ -5,6 +5,30 @@ import {
   ABILITY_DEFS, getAbilityStaminaCost,
 } from '../engine/formulas'
 import { usePetStore } from './petStore'
+import { useCraftingStore } from './craftingStore'
+
+// Status effect tick constants
+const STATUS_DEFS = {
+  burn:  { dmgPerTurn: 6, turns: 3 },
+  bleed: { dmgPerTurn: 4, turns: 4 },
+  stun:  { turns: 1 },
+}
+
+/** Apply on-hit status effect from a crafted weapon */
+function applyWeaponStatus(s, weapon, turn) {
+  if (!weapon?.statusEffect) return []
+  const def = STATUS_DEFS[weapon.statusEffect]
+  if (!def) return []
+  // 40% chance to proc per hit
+  if (Math.random() > 0.40) return []
+  const effect = weapon.statusEffect
+  if (effect === 'stun') {
+    s.npcStatuses.stun = { turns: def.turns }
+  } else {
+    s.npcStatuses[effect] = { dmg: def.dmgPerTurn, turns: def.turns }
+  }
+  return [{ turn, actor: 'player', action: 'status', status: effect }]
+}
 
 export const useCombatStore = defineStore('combat', {
   state: () => ({
@@ -39,8 +63,8 @@ export const useCombatStore = defineStore('combat', {
         nHP: npc.hp,
         npc,
         log: [], turn: 0, over: false, winner: null,
-        npcStatuses: {},   // { poison: { dmg, turns }, stun: { turns } }
-        npcDefDebuff: 0,   // cumulative fractional defense reduction
+        npcStatuses: {},   // { burn: {dmg,turns}, bleed: {dmg,turns}, stun: {turns}, poison: {dmg,turns} }
+        npcDefDebuff: 0,
       }
     },
 
@@ -70,13 +94,15 @@ export const useCombatStore = defineStore('combat', {
       s.turn++
       const entries = []
 
-      // --- Tick NPC poison at start of turn ---
-      if (s.npcStatuses.poison?.turns > 0) {
-        const pdmg = s.npcStatuses.poison.dmg
-        s.nHP = Math.max(0, s.nHP - pdmg)
-        entries.push({ turn: s.turn, actor: 'npc', action: 'poison', damage: pdmg })
-        s.npcStatuses.poison.turns--
-        if (s.nHP <= 0) { s.over = true; s.winner = 'player'; s.log.push(...entries); return entries }
+      // --- Tick NPC DoT statuses at start of turn (poison, burn, bleed) ---
+      for (const effect of ['poison', 'burn', 'bleed']) {
+        const st = s.npcStatuses[effect]
+        if (st?.turns > 0) {
+          s.nHP = Math.max(0, s.nHP - st.dmg)
+          entries.push({ turn: s.turn, actor: 'npc', action: effect, damage: st.dmg })
+          st.turns--
+          if (s.nHP <= 0) { s.over = true; s.winner = 'player'; s.log.push(...entries); return entries }
+        }
       }
 
       // --- Player action ---
@@ -100,9 +126,13 @@ export const useCombatStore = defineStore('combat', {
         const effNpcDef = { ...nStats, defense: nStats.defense * (1 - s.npcDefDebuff) }
         const hit = Math.random() < calculateHitChance(pStats, effNpcDef, playerWeapon)
         if (hit) {
-          const dmg = Math.floor(calculateCombatDamage(pStats, effNpcDef, playerWeapon) * usePetStore().combatDamageBonus)
+          const craftMultiplier = playerWeapon ? useCraftingStore().getItemMultiplier(playerWeapon.id) : 1.0
+          const rawDmg = Math.floor(calculateCombatDamage(pStats, effNpcDef, playerWeapon) * usePetStore().combatDamageBonus * craftMultiplier)
+          const dmg = rawDmg
           s.nHP = Math.max(0, s.nHP - dmg)
           entries.push({ turn: s.turn, actor: 'player', action: 'hit', damage: dmg })
+          // Status effect proc
+          entries.push(...applyWeaponStatus(s, playerWeapon, s.turn))
           if (s.nHP <= 0) { s.over = true; s.winner = 'player'; s.log.push(...entries); return entries }
         } else {
           entries.push({ turn: s.turn, actor: 'player', action: 'miss' })

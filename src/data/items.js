@@ -1,3 +1,31 @@
+// === CRAFTING MATERIALS ===
+// Loot-only (no buyPrice)
+export const CRAFTING_MATERIALS = [
+  { id: 'mat_iron',        name: 'Σίδερο',       icon: '🔩', type: 'material', rarity: 'common',   buyPrice: 0, sellPrice: 10, description: 'Κομμάτι σιδήρου από εργοτάξιο ή γκαράζ.', levelRequired: 1 },
+  { id: 'mat_wood',        name: 'Ξύλο',         icon: '🪵', type: 'material', rarity: 'common',   buyPrice: 0, sellPrice: 8,  description: 'Ξύλινη σανίδα από εργοτάξιο.', levelRequired: 1 },
+  { id: 'mat_electronics', name: 'Ηλεκτρονικά', icon: '🔌', type: 'material', rarity: 'uncommon', buyPrice: 0, sellPrice: 30, description: 'Εξαρτήματα από ηλεκτρονικό κατάστημα.', levelRequired: 1 },
+  { id: 'mat_fuel',        name: 'Βενζίνη',      icon: '⛽', type: 'material', rarity: 'common',   buyPrice: 0, sellPrice: 12, description: 'Δοχείο βενζίνης από βενζινάδικο.', levelRequired: 1 },
+  { id: 'mat_chemicals',   name: 'Χημικά',       icon: '🧪', type: 'material', rarity: 'uncommon', buyPrice: 0, sellPrice: 25, description: 'Χημικές ουσίες από φαρμακείο.', levelRequired: 1 },
+  { id: 'mat_kevlar',      name: 'Κέβλαρ',       icon: '🛡️', type: 'material', rarity: 'rare',     buyPrice: 0, sellPrice: 80, description: 'Κέβλαρ από αστυνομική επιδρομή.', levelRequired: 2 },
+  // Buyable from Market
+  { id: 'mat_fabric',      name: 'Ύφασμα',       icon: '🧵', type: 'material', rarity: 'common',   buyPrice: 40,  sellPrice: 15, description: 'Ανθεκτικό ύφασμα.', levelRequired: 1 },
+  { id: 'mat_battery',     name: 'Μπαταρία',     icon: '🔋', type: 'material', rarity: 'common',   buyPrice: 60,  sellPrice: 20, description: 'Βιομηχανική μπαταρία.', levelRequired: 1 },
+]
+
+// === CRAFTED ITEMS ===
+export const CRAFTED_ITEMS = [
+  { id: 'craft_molotov',      name: 'Μολότοφ',              icon: '🔥', type: 'weapon', subtype: 'thrown', rarity: 'uncommon', damage: 18, accuracy: 0.80, statusEffect: 'burn',  buyPrice: 0, sellPrice: 200,  description: 'Εμπρηστική βόμβα. Προκαλεί Burn.', levelRequired: 1 },
+  { id: 'craft_knife',        name: 'Αυτοσχέδιο Μαχαίρι',  icon: '🗡️', type: 'weapon', subtype: 'melee',  rarity: 'common',   damage: 8,  accuracy: 0.88, statusEffect: 'bleed', buyPrice: 0, sellPrice: 80,   description: 'Αιχμηρό αυτοσχέδιο μαχαίρι. Προκαλεί Bleed.', levelRequired: 1 },
+  { id: 'craft_shirt',        name: 'Ενισχυμένη Μπλούζα',  icon: '👕', type: 'armor',  rarity: 'common',   defense: 5,                                    buyPrice: 0, sellPrice: 60,   description: 'Ενισχυμένη με μεταλλικές ίνες.', levelRequired: 1 },
+  { id: 'craft_zapper',       name: 'Zapper',               icon: '⚡', type: 'weapon', subtype: 'melee',  rarity: 'uncommon', damage: 10, accuracy: 0.85, statusEffect: 'stun',  buyPrice: 0, sellPrice: 150,  description: 'Ηλεκτρικό όπλο. Προκαλεί Stun.', levelRequired: 1 },
+  { id: 'craft_bat',          name: 'Τροποποιημένο Ρόπαλο', icon: '🏏', type: 'weapon', subtype: 'melee',  rarity: 'uncommon', damage: 12, accuracy: 0.82, statusEffect: 'stun',  buyPrice: 0, sellPrice: 120,  description: 'Ρόπαλο με καρφιά. Προκαλεί Stun.', levelRequired: 1 },
+  { id: 'craft_kevlar_vest',  name: 'Γιλέκο Κέβλαρ',       icon: '🦺', type: 'armor',  rarity: 'rare',     defense: 20,                                   buyPrice: 0, sellPrice: 500,  description: 'Αλεξίσφαιρο γιλέκο κέβλαρ.', levelRequired: 2 },
+  { id: 'craft_chem_bomb',    name: 'Χημική Βόμβα',         icon: '💀', type: 'weapon', subtype: 'thrown', rarity: 'rare',     damage: 22, accuracy: 0.75, statusEffect: 'burn',  buyPrice: 0, sellPrice: 350,  description: 'Χημική βόμβα. Ισχυρό Burn.', levelRequired: 3 },
+  { id: 'craft_knuckles',     name: 'Σιδηρογροθιά',        icon: '🥊', type: 'weapon', subtype: 'melee',  rarity: 'uncommon', damage: 9,  accuracy: 0.90, statusEffect: 'bleed', buyPrice: 0, sellPrice: 100,  description: 'Σιδερένια γροθιά. Προκαλεί Bleed.', levelRequired: 1 },
+  { id: 'craft_elec_blade',   name: 'Ηλεκτρική Λεπίδα',    icon: '⚔️', type: 'weapon', subtype: 'melee',  rarity: 'rare',     damage: 16, accuracy: 0.83, statusEffect: 'stun',  buyPrice: 0, sellPrice: 280,  description: 'Λεπίδα με ηλεκτρισμό. Προκαλεί Stun.', levelRequired: 3 },
+  { id: 'craft_helmet',       name: 'Στρατιωτικό Κράνος',  icon: '⛑️', type: 'armor',  rarity: 'rare',     defense: 18,                                   buyPrice: 0, sellPrice: 450,  description: 'Στρατιωτικό κράνος κέβλαρ.', levelRequired: 2 },
+]
+
 export const items = [
   // === WEAPONS - Melee ===
   { id: 'kitchen_knife', name: 'Μαχαίρι Κουζίνας', type: 'weapon', subtype: 'melee', rarity: 'common', damage: 3, accuracy: 0.90, buyPrice: 50, sellPrice: 25, description: 'Ένα απλό μαχαίρι.', levelRequired: 1, icon: '🔪' },
@@ -52,7 +80,7 @@ export const items = [
 ]
 
 export function getItemById(id) {
-  return items.find(i => i.id === id)
+  return [...CRAFTING_MATERIALS, ...CRAFTED_ITEMS, ...items].find(i => i.id === id)
 }
 
 export function getItemsByType(type) {
@@ -60,5 +88,6 @@ export function getItemsByType(type) {
 }
 
 export function getBuyableItems() {
-  return items.filter(i => i.buyPrice > 0)
+  const buyableMaterials = CRAFTING_MATERIALS.filter(i => i.buyPrice > 0)
+  return [...items.filter(i => i.buyPrice > 0), ...buyableMaterials]
 }
