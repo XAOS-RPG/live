@@ -11,6 +11,8 @@ import { useAchievementStore } from './achievementStore'
 import { useWeeklyEventStore } from './weeklyEventStore'
 import { usePetStore } from './petStore'
 import { useCraftingStore } from './craftingStore'
+import { useCardStore } from './cardStore'
+import { useFactionStore } from './factionStore'
 
 export const useCrimeStore = defineStore('crime', {
   state: () => ({
@@ -77,7 +79,10 @@ export const useCrimeStore = defineStore('crime', {
 
       // Pre-roll result at start (prevents save-scumming)
       let successRate = calculateCrimeSuccess(effective, player.stats, player.crimeXP, player.filotimo)
-      successRate = Math.min(0.98, successRate * usePetStore().crimeSuccessBonus)
+      // Apply pet × card multipliers, then add fortress flat bonus
+      successRate = Math.min(0.98,
+        (successRate * usePetStore().crimeSuccessBonus * useCardStore().crimeSuccessBonus)
+        + useFactionStore().fortressCrimeSuccessBonus)
       const { roll, targetRoll, success: succeeded } = rollD6(successRate)
 
       const preRolled = { success: succeeded, roll, targetRoll, successRate, variantId }
@@ -86,7 +91,10 @@ export const useCrimeStore = defineStore('crime', {
         const reward = calculateCrimeReward(effective)
         const travelStore = useTravelStore()
         const weeklyEvent = useWeeklyEventStore()
-        const locationCash = Math.floor(reward.cash * travelStore.crimeRewardMultiplier * weeklyEvent.crimeRewardMultiplier)
+        const locationCash = Math.floor(reward.cash
+          * travelStore.crimeRewardMultiplier
+          * weeklyEvent.crimeRewardMultiplier
+          * useCardStore().crimeCashBonus)
 
         // Guaranteed item pool (e.g. shoplifting 'item' variant) or random drop
         let droppedItemId = null

@@ -27,6 +27,7 @@ import { useCraftingStore } from './craftingStore'
 import { useLoanStore } from './loanStore'
 import { usePrestigeStore } from './prestigeStore'
 import { useEliteStore } from './eliteStore'
+import { useCardStore } from './cardStore'
 
 let toastId = 0
 
@@ -109,6 +110,7 @@ export const useGameStore = defineStore('game', {
             loan: useLoanStore().getSerializable(),
             prestige: usePrestigeStore().getSerializable(),
             elite: useEliteStore().getSerializable(),
+            card: useCardStore().getSerializable(),
           }
         }
 
@@ -247,6 +249,9 @@ export const useGameStore = defineStore('game', {
         }
         if (saveData.stores.elite) {
           useEliteStore().hydrate(saveData.stores.elite)
+        }
+        if (saveData.stores.card) {
+          useCardStore().hydrate(saveData.stores.card)
         }
 
         // Calculate offline progress

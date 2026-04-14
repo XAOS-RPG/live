@@ -6,6 +6,8 @@ import { useAuthStore } from './authStore'
 import { useWeeklyEventStore } from './weeklyEventStore'
 import { usePetStore } from './petStore'
 import { usePrestigeStore } from './prestigeStore'
+import { useFactionStore } from './factionStore'
+import { useCardStore } from './cardStore'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -123,6 +125,21 @@ export const usePlayerStore = defineStore('player', {
       return 1 + (this.resources.happiness.current / Math.max(1, this.resources.happiness.max)) * 0.5
     },
 
+    /** Nerve max including faction fortress ops bonus (+1 per level) */
+    effectiveNerveMax() {
+      return this.resources.nerve.max + useFactionStore().fortressNerveBonus
+    },
+
+    /** HP max including equipped card hpMax buff */
+    effectiveHpMax() {
+      return this.resources.hp.max + useCardStore().hpMaxBonus
+    },
+
+    /** Happiness max including equipped card happinessMax buff */
+    effectiveHappinessMax() {
+      return this.resources.happiness.max + useCardStore().happinessMaxBonus
+    },
+
     rankTitle() {
       const titles = [
         { level: 1, title: 'Αρχάριος' },
@@ -176,9 +193,9 @@ export const usePlayerStore = defineStore('player', {
     },
 
     addXP(amount) {
-      // Apply weekly event XP multiplier
+      // Apply weekly event XP multiplier, pet, prestige, and card bonuses
       const weeklyEvent = useWeeklyEventStore()
-      amount = Math.floor(amount * weeklyEvent.xpMultiplier * usePetStore().xpBoostBonus * usePrestigeStore().xpMultiplier)
+      amount = Math.floor(amount * weeklyEvent.xpMultiplier * usePetStore().xpBoostBonus * usePrestigeStore().xpMultiplier * useCardStore().xpGainBonus)
       this.xp += amount
       while (this.xp >= this.xpToNextLevel) {
         this.xp -= this.xpToNextLevel
@@ -322,6 +339,13 @@ export const usePlayerStore = defineStore('player', {
         const res = this.resources[key]
         if (!res) continue
 
+        // Effective max — nerve and happiness can be boosted by fortress/cards
+        const effectiveMax = key === 'nerve'
+          ? this.effectiveNerveMax
+          : key === 'happiness'
+            ? this.effectiveHappinessMax
+            : res.max
+
         // Calculate how much to accumulate
         let regenPerMs = rate.amount / rate.intervalMs
         // Apply weekly event happiness decay modifier
@@ -335,7 +359,7 @@ export const usePlayerStore = defineStore('player', {
           if (this.regenAccumulators[key] >= 1) {
             const gain = Math.floor(this.regenAccumulators[key])
             this.regenAccumulators[key] -= gain
-            res.current = Math.min(res.max, res.current + gain)
+            res.current = Math.min(effectiveMax, res.current + gain)
           }
         } else {
           // Decay (happiness)

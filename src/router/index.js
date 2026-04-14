@@ -233,6 +233,18 @@ const routes = [
     name: 'settings',
     component: () => import('../views/SettingsView.vue'),
     meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/lucky-kiosk',
+    name: 'lucky-kiosk',
+    component: () => import('../views/LuckyKioskView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/faction-fortress',
+    name: 'faction-fortress',
+    component: () => import('../views/FactionFortressView.vue'),
+    meta: { allowIncapacitated: true }
   }
 ]
 

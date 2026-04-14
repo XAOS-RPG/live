@@ -132,6 +132,8 @@ import { useMissionStore } from '../stores/missionStore'
 import { useWeeklyEventStore } from '../stores/weeklyEventStore'
 import { usePetStore } from '../stores/petStore'
 import { usePrestigeStore } from '../stores/prestigeStore'
+import { useCardStore } from '../stores/cardStore'
+import { useFactionStore } from '../stores/factionStore'
 import DiceRoll from '../components/ui/DiceRoll.vue'
 
 const player = usePlayerStore()
@@ -141,6 +143,8 @@ const travelStore = useTravelStore()
 const weeklyEvent = useWeeklyEventStore()
 const petStore = usePetStore()
 const prestigeStore = usePrestigeStore()
+const cardStore = useCardStore()
+const factionStore = useFactionStore()
 
 const selectedStat = ref('strength')
 const showDice = ref(false)
@@ -213,7 +217,14 @@ function startExercise(ex) {
     player.resources.happiness.current,
     player.resources.happiness.max
   )
-  const baseGainWithExercise = baseGain * ex.multiplier * travelStore.gymBoostMultiplier * weeklyEvent.gymGainMultiplier * petStore.gymGainBonus * prestigeStore.gymMultiplier
+  const baseGainWithExercise = baseGain * ex.multiplier
+    * travelStore.gymBoostMultiplier
+    * weeklyEvent.gymGainMultiplier
+    * petStore.gymGainBonus
+    * prestigeStore.gymMultiplier
+    * cardStore.gymGainBonus                              // all-stat card bonus (gymGainAll)
+    * cardStore.gymGainStatBonus(selectedStat.value)     // stat-specific card bonus (gymGain)
+    * factionStore.fortressGymBonus                      // faction fortress gym building
 
   // Pre-roll the d6 now (prevents save-scumming); player doesn't see it until they stop the die
   const roll = Math.floor(Math.random() * 6) + 1

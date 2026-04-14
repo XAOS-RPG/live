@@ -62,7 +62,7 @@
         <ResourceBar
           label="Θράσος"
           :current="player.resources.nerve.current"
-          :max="player.resources.nerve.max"
+          :max="player.effectiveNerveMax"
           color="var(--color-nerve)"
           bg-color="var(--color-nerve-bg)"
           icon="🎭"
@@ -70,7 +70,7 @@
         <ResourceBar
           label="Κέφι"
           :current="player.resources.happiness.current"
-          :max="player.resources.happiness.max"
+          :max="player.effectiveHappinessMax"
           color="var(--color-happiness)"
           bg-color="var(--color-happiness-bg)"
           icon="😄"

@@ -4,6 +4,7 @@ import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useMissionStore } from './missionStore'
 import { useSmugglingStore } from './smugglingStore'
+import { useCardStore } from './cardStore'
 
 // Cost per minute of train travel (€)
 const COST_PER_MINUTE = 25
@@ -75,8 +76,11 @@ export const useTravelStore = defineStore('travel', {
       }
 
       const baseTravelTime = getTravelTime(this.currentLocation, destinationId)
-      const duration = mode === 'plane' ? Math.floor(baseTravelTime / 2) : baseTravelTime
-      const cost = calculateTravelCost(baseTravelTime, mode)
+      // Apply card travel time reduction (e.g. Ο Λαθρέμπορος -5%)
+      const cardStore = useCardStore()
+      const rawDuration = mode === 'plane' ? Math.floor(baseTravelTime / 2) : baseTravelTime
+      const duration = Math.max(1000, Math.floor(rawDuration * cardStore.travelTimeMultiplier))
+      const cost = Math.max(50, Math.floor(calculateTravelCost(baseTravelTime, mode) * cardStore.travelCostMultiplier))
 
       if (player.cash < cost) {
         return { started: false, message: `Χρειάζεσαι €${cost} για το εισιτήριο!` }
