@@ -245,6 +245,18 @@ const routes = [
     name: 'faction-fortress',
     component: () => import('../views/FactionFortressView.vue'),
     meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/auction',
+    name: 'auction',
+    component: () => import('../views/AuctionHouseView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/black-market',
+    name: 'black-market',
+    component: () => import('../views/BlackMarketView.vue'),
+    meta: { allowIncapacitated: true }
   }
 ]
 

@@ -3,6 +3,7 @@ import { contrabandGoods, getContrabandPrice, calculateCheckpointChance } from '
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useTravelStore } from './travelStore'
+import { useEliteStore } from './eliteStore'
 
 const JAIL_BASE_MS = 60 * 60 * 1000 // 1 hour base jail time
 
@@ -116,7 +117,7 @@ export const useSmugglingStore = defineStore('smuggling', {
       const totalRevenue = pricePerUnit * quantity
       const profit = totalRevenue - (cargoEntry.boughtAt * quantity)
 
-      player.addCash(totalRevenue)
+      useEliteStore().addDirtyMoney(totalRevenue)
       cargoEntry.quantity -= quantity
       if (cargoEntry.quantity <= 0) {
         this.cargo = this.cargo.filter(c => c.goodId !== goodId)
@@ -126,8 +127,8 @@ export const useSmugglingStore = defineStore('smuggling', {
       this.successfulRuns++
 
       const profitText = profit >= 0 ? `+€${profit}` : `-€${Math.abs(profit)}`
-      gameStore.addNotification(`Πούλησες ${quantity}x ${good.name} για €${totalRevenue} (${profitText})`, profit >= 0 ? 'cash' : 'warning')
-      player.logActivity(`🚬 Πώληση λαθραίων: ${good.name} x${quantity} (${profitText})`, 'cash')
+      gameStore.addNotification(`Πούλησες ${quantity}x ${good.name} για €${totalRevenue} βρώμικα (${profitText})`, profit >= 0 ? 'cash' : 'warning')
+      player.logActivity(`🚬 Πώληση λαθραίων: ${good.name} x${quantity} → €${totalRevenue} βρώμικα (${profitText})`, 'cash')
       gameStore.saveGame()
       return true
     },

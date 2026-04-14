@@ -123,6 +123,8 @@ const categories = [
     items: [
       { to: '/shop',         icon: '🛒',  label: 'Κατάστημα',       badgeKey: null },
       { to: '/bazaar',       icon: '🏪',  label: 'Παζάρι',           badgeKey: 'bazaar' },
+      { to: '/auction',      icon: '🏛️',  label: 'Δημοπρασία',       badgeKey: null },
+      { to: '/black-market', icon: '🕵️',  label: 'Μαυραγορίτης',    badgeKey: null },
       { to: '/inventory',    icon: '🎒',  label: 'Τσέπη',            badgeKey: null },
       { to: '/bounties',     icon: '🎯',  label: 'Συμβόλαια',        badgeKey: null },
       { to: '/pets',         icon: '🐾',  label: 'Κατοικίδια',       badgeKey: null },

@@ -28,6 +28,8 @@ import { useLoanStore } from './loanStore'
 import { usePrestigeStore } from './prestigeStore'
 import { useEliteStore } from './eliteStore'
 import { useCardStore } from './cardStore'
+import { useAuctionStore } from './auctionStore'
+import { useDealerStore } from './dealerStore'
 
 let toastId = 0
 
@@ -111,6 +113,8 @@ export const useGameStore = defineStore('game', {
             prestige: usePrestigeStore().getSerializable(),
             elite: useEliteStore().getSerializable(),
             card: useCardStore().getSerializable(),
+            auction: useAuctionStore().getSerializable(),
+            dealer: useDealerStore().getSerializable(),
           }
         }
 
@@ -253,6 +257,12 @@ export const useGameStore = defineStore('game', {
         if (saveData.stores.card) {
           useCardStore().hydrate(saveData.stores.card)
         }
+        if (saveData.stores.auction) {
+          useAuctionStore().hydrate(saveData.stores.auction)
+        }
+        if (saveData.stores.dealer) {
+          useDealerStore().hydrate(saveData.stores.dealer)
+        }
 
         // Calculate offline progress
         const elapsed = Math.min(MAX_OFFLINE_MS, Date.now() - (saveData.timestamp || Date.now()))
@@ -372,6 +382,12 @@ export const useGameStore = defineStore('game', {
         const eliteStore = useEliteStore()
         eliteStore.tickHenchmen(now)
         eliteStore.tickInfluence(delta)
+
+        // Auction expiry + NPC bidding
+        useAuctionStore().tickAuctions(now)
+
+        // Black market dealer spawn cycle
+        useDealerStore().tickDealer(now)
 
         // Auto-save
         if (now - lastSave >= AUTO_SAVE_INTERVAL_MS) {
