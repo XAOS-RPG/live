@@ -46,8 +46,8 @@ export const usePvpStore = defineStore('pvp', {
 
       this.loading = true
       try {
-        const levelMin = Math.max(1, player.level - 5)
-        const levelMax = player.level + 5
+        const levelMin = Math.max(1, player.level - 8)
+        const levelMax = player.level + 8
 
         const { data, error } = await supabase
           .from('profiles')
@@ -55,7 +55,7 @@ export const usePvpStore = defineStore('pvp', {
           .neq('id', auth.user.id)
           .gte('level', levelMin)
           .lte('level', levelMax)
-          .eq('status', 'free')          // only attackable if not in hospital/jail
+          // Don't filter by status here — show all, mark unavailable in UI
           .order('level', { ascending: true })
           .limit(20)
 
@@ -74,6 +74,10 @@ export const usePvpStore = defineStore('pvp', {
       const hp = profile.resources?.hp?.current ?? 100
       const hpMax = profile.resources?.hp?.max ?? 100
       const stats = profile.stats ?? { strength: 5, speed: 5, dexterity: 5, defense: 5 }
+      const status = profile.status ?? 'free'
+      // Check if status timer has already expired (player may be free again)
+      const timerEnd = profile.resources?.statusTimerEnd ?? null
+      const isActuallyFree = status === 'free' || (timerEnd && Date.now() > new Date(timerEnd).getTime())
       return {
         id: profile.id,
         nickname: profile.username || profile.name || 'Άγνωστος',
@@ -81,9 +85,11 @@ export const usePvpStore = defineStore('pvp', {
         stats,
         hp: Math.max(1, hp),
         hpMax,
+        status,
+        available: isActuallyFree,
         energyCost: 25,
         rewards: {
-          cashMin: 0,   // calculated dynamically at fight time
+          cashMin: 0,
           cashMax: 0,
           xp: Math.floor(10 * (profile.level ?? 1) * 0.8),
         },

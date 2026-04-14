@@ -116,8 +116,15 @@
 
       <template v-else>
         <div class="card text-muted" style="font-size:var(--font-size-xs);">Επίλεξε στόχο:</div>
+        <div v-if="playersStore.loadingTargets" class="text-muted" style="text-align:center;padding:var(--space-lg)">
+          ⏳ Αναζήτηση παικτών…
+        </div>
+        <div v-else-if="playersStore.targets.length === 0" class="card text-muted" style="text-align:center;padding:var(--space-lg)">
+          Δεν βρέθηκαν διαθέσιμοι στόχοι.
+          <br><button class="btn btn-sm btn-outline" style="margin-top:var(--space-sm)" @click="playersStore.fetchTargets(player.level)">🔄 Ανανέωση</button>
+        </div>
         <div
-          v-for="user in availableTargets"
+          v-for="user in playersStore.targets"
           :key="user.id"
           class="card target-card"
           @click="selectedTarget = user"
@@ -125,7 +132,7 @@
           <span class="target-icon">{{ user.icon }}</span>
           <div class="target-info">
             <strong>{{ user.nickname }}</strong>
-            <span class="text-muted" style="font-size:var(--font-size-xs);">Επ. {{ user.level }} · {{ user.location }}</span>
+            <span class="text-muted" style="font-size:var(--font-size-xs);">Επ. {{ user.level }}</span>
           </div>
           <div class="target-actions">
             <button
@@ -175,17 +182,18 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useBountyStore } from '../stores/bountyStore'
 import { usePlayerStore } from '../stores/playerStore'
 import { useGameStore } from '../stores/gameStore'
 import { useFriendStore } from '../stores/friendStore'
-import { fakeUsers } from '../data/fakeUsers'
+import { usePlayersStore } from '../stores/playersStore'
 
 const bountyStore = useBountyStore()
 const player = usePlayerStore()
 const gameStore = useGameStore()
 const friendStore = useFriendStore()
+const playersStore = usePlayersStore()
 
 const tab = ref('list')
 const selectedTarget = ref(null)
@@ -193,7 +201,7 @@ const bountyAmount = ref(100)
 const huntResult = ref(null)
 const sendingFriendId = ref(null)
 
-const availableTargets = fakeUsers
+onMounted(() => playersStore.fetchTargets(player.level))
 
 function formatCash(n) {
   return new Intl.NumberFormat('el-GR').format(Math.floor(n))

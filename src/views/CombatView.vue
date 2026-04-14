@@ -104,7 +104,7 @@
               v-for="user in pvpStore.targets"
               :key="user.id"
               class="card opp-card pvp-card"
-              :class="{ disabled: !canFight(user) }"
+              :class="{ disabled: !canFight(user) || !user.available }"
               @click="startFight(user)"
             >
               <div class="opp-top">
@@ -112,7 +112,8 @@
                 <div class="opp-info">
                   <strong class="pvp-nick">{{ user.nickname }}</strong>
                   <div class="pvp-sub">
-                    <span class="badge badge-success" style="font-size:10px">🟢 Real Player</span>
+                    <span v-if="user.available" class="badge badge-success" style="font-size:10px">🟢 Διαθέσιμος</span>
+                    <span v-else class="badge badge-danger" style="font-size:10px">🔴 {{ user.status === 'hospital' ? 'Νοσοκομείο' : 'Φυλακή' }}</span>
                   </div>
                 </div>
               </div>
@@ -287,7 +288,9 @@ const difficulties = [
 function getNpcsByDiff(d) { return npcs.filter(n => n.difficulty === d) }
 
 function canFight(target) {
-  return player.resources.energy.current >= target.energyCost && !player.isIncapacitated
+  return player.resources.energy.current >= target.energyCost
+    && !player.isIncapacitated
+    && (target.available !== false)
 }
 
 function selectMode(m) {

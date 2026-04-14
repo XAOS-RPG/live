@@ -14,7 +14,13 @@
       </button>
     </div>
 
-    <div class="leaderboard-list">
+    <div v-if="playersStore.loadingLeaderboard" class="text-muted" style="text-align:center;padding:var(--space-lg)">
+      ⏳ Φόρτωση κατάταξης…
+    </div>
+    <div v-else-if="currentLeaderboard.length === 0" class="card text-muted" style="text-align:center;padding:var(--space-lg)">
+      Δεν βρέθηκαν παίκτες ακόμα.
+    </div>
+    <div v-else class="leaderboard-list">
       <div
         v-for="(entry, index) in currentLeaderboard"
         :key="entry.id"
@@ -45,23 +51,27 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useCombatStore } from '../stores/combatStore'
 import { useFriendStore } from '../stores/friendStore'
 import { useGameStore } from '../stores/gameStore'
 import { useAuthStore } from '../stores/authStore'
+import { usePlayersStore } from '../stores/playersStore'
 import { useRouter } from 'vue-router'
-import { fakeUsers } from '../data/fakeUsers'
 
 const player = usePlayerStore()
 const combatStore = useCombatStore()
 const friendStore = useFriendStore()
 const gameStore = useGameStore()
 const auth = useAuthStore()
+const playersStore = usePlayersStore()
 const router = useRouter()
 const activeTab = ref('level')
 const sendingId = ref(null)
+
+onMounted(() => playersStore.fetchLeaderboard(activeTab.value))
+watch(activeTab, tab => playersStore.fetchLeaderboard(tab))
 
 const tabs = [
   { key: 'level', label: 'Επίπεδο', icon: '📈' },
@@ -90,61 +100,45 @@ function getRankTitle(level) {
   return rank
 }
 
-// Generate fake leaderboard entries from fakeUsers
-function buildFakeEntries() {
-  return fakeUsers.map(u => ({
-    id: u.id,
-    name: u.nickname,
-    icon: u.icon,
-    level: u.level,
-    rankTitle: getRankTitle(u.level),
-    stats: u.stats.strength + u.stats.speed + u.stats.dexterity + u.stats.defense,
-    wealth: u.rewards.cashMax * (10 + u.level * 5) + Math.floor(Math.random() * 5000),
-    winRate: Math.floor(40 + Math.random() * 55),
-    isPlayer: false,
-  }))
-}
-
-function buildPlayerEntry(valueKey) {
-  const stats = combatStore.combatStats
-  const values = {
-    level: player.level,
-    wealth: player.cash + player.bank + player.vault,
-    stats: player.totalStats,
-    winrate: parseFloat(stats.winRate) || 0,
+function getValue(row, tab) {
+  if (tab === 'level') return row.level ?? 0
+  if (tab === 'wealth') return (row.cash ?? 0) + (row.bank ?? 0) + (row.vault ?? 0)
+  if (tab === 'stats') {
+    const s = row.stats ?? {}
+    return (s.strength ?? 0) + (s.speed ?? 0) + (s.dexterity ?? 0) + (s.defense ?? 0)
   }
-  return {
-    id: 'player',
-    name: player.name,
-    icon: '👤',
-    level: player.level,
-    rankTitle: player.rankTitle,
-    stats: player.totalStats,
-    wealth: player.cash + player.bank + player.vault,
-    winRate: parseFloat(stats.winRate) || 0,
-    value: values[valueKey],
-    isPlayer: true,
-  }
+  return row.level ?? 0
 }
 
 const currentLeaderboard = computed(() => {
-  const fakes = buildFakeEntries()
   const tab = activeTab.value
+  const entries = playersStore.leaderboard.map(row => ({
+    id: row.id,
+    uuid: row.id,
+    name: row.username || row.name || 'Άγνωστος',
+    icon: '👤',
+    level: row.level ?? 1,
+    rankTitle: getRankTitle(row.level ?? 1),
+    value: getValue(row, tab),
+    isPlayer: row.id === auth.user?.id,
+  }))
 
-  const entries = fakes.map(f => {
-    let value
-    if (tab === 'level') value = f.level
-    else if (tab === 'wealth') value = f.wealth
-    else if (tab === 'stats') value = f.stats
-    else if (tab === 'winrate') value = f.winRate
-    return { ...f, value }
-  })
+  // Ensure current player is always included
+  if (!entries.find(e => e.isPlayer)) {
+    const stats = combatStore.combatStats
+    entries.push({
+      id: 'player',
+      uuid: auth.user?.id,
+      name: player.name,
+      icon: '👤',
+      level: player.level,
+      rankTitle: player.rankTitle,
+      value: getValue({ level: player.level, cash: player.cash, bank: player.bank, vault: player.vault, stats: player.stats }, tab),
+      isPlayer: true,
+    })
+  }
 
-  const playerEntry = buildPlayerEntry(tab)
-  entries.push(playerEntry)
-
-  entries.sort((a, b) => b.value - a.value)
-  return entries.slice(0, 15)
+  return entries.sort((a, b) => b.value - a.value).slice(0, 15)
 })
 
 function rankClass(index) {
