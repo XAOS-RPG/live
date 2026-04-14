@@ -13,6 +13,8 @@ export const useInventoryStore = defineStore('inventory', {
       armor: null,     // itemId or null
     },
     maxSlots: 20,
+    pinkbullToday: 0,
+    pinkbullDayKey: '',
   }),
 
   getters: {
@@ -108,6 +110,27 @@ export const useInventoryStore = defineStore('inventory', {
       if (!owned || owned.quantity <= 0) return false
 
       if (item.type === 'medical') {
+        if (item.id === 'pinkbull') {
+          const todayKey = new Date().toDateString()
+          if (this.pinkbullDayKey !== todayKey) {
+            this.pinkbullDayKey = todayKey
+            this.pinkbullToday = 0
+          }
+          this.pinkbullToday++
+          player.modifyResource('energy', item.energyBoost)
+          this.removeItem(itemId, 1)
+          gameStore.addNotification(`🩷 Pink Bull! +${item.energyBoost} Ενέργεια`, 'success')
+          player.logActivity(`🩷 Pink Bull +${item.energyBoost} Ενέργεια`, 'info')
+          if (this.pinkbullToday > 2) {
+            const overdoseChance = (this.pinkbullToday - 2) * 0.02
+            if (Math.random() < overdoseChance) {
+              player.setStatus('hospital', 30 * 60 * 1000)
+              gameStore.addNotification('💔 Υπερένταση από Pink Bull! Νοσοκομείο 30 λεπτά!', 'danger')
+              player.logActivity('💔 Υπερένταση Pink Bull → Νοσοκομείο', 'danger')
+            }
+          }
+          return true
+        }
         if (item.healAmount) {
           player.modifyResource('hp', item.healAmount)
         }
@@ -199,6 +222,8 @@ export const useInventoryStore = defineStore('inventory', {
       return {
         items: this.items.map(i => ({ ...i })),
         equipped: { ...this.equipped },
+        pinkbullToday: this.pinkbullToday,
+        pinkbullDayKey: this.pinkbullDayKey,
       }
     },
 
@@ -206,6 +231,8 @@ export const useInventoryStore = defineStore('inventory', {
       if (!data) return
       if (data.items) this.items = data.items.map(i => ({ ...i }))
       if (data.equipped) Object.assign(this.equipped, data.equipped)
+      if (data.pinkbullDayKey !== undefined) this.pinkbullDayKey = data.pinkbullDayKey
+      if (data.pinkbullToday !== undefined) this.pinkbullToday = data.pinkbullToday
     },
   }
 })

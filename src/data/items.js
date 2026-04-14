@@ -51,6 +51,7 @@ export const items = [
   { id: 'painkillers', name: 'Παυσίπονα', type: 'medical', rarity: 'common', healAmount: 15, hospitalReduction: 60000, buyPrice: 50, sellPrice: 25, description: 'Μειώνουν τον χρόνο νοσηλείας.', levelRequired: 1, icon: '💊' },
   { id: 'surgical_kit', name: 'Χειρουργικό Κιτ', type: 'medical', rarity: 'rare', healAmount: 60, hospitalReduction: 180000, buyPrice: 500, sellPrice: 250, description: 'Επαγγελματικό χειρουργικό κιτ.', levelRequired: 5, icon: '🏥' },
   { id: 'adrenaline', name: 'Αδρεναλίνη', type: 'medical', rarity: 'epic', healAmount: 100, energyBoost: 50, buyPrice: 1000, sellPrice: 500, description: 'Άμεση αδρεναλίνη. Γεμίζει ζωή και ενέργεια.', levelRequired: 8, icon: '💉' },
+  { id: 'pinkbull', name: 'Pink Bull', type: 'medical', rarity: 'common', energyBoost: 5, buyPrice: 10, sellPrice: 4, description: '+5 Ενέργεια. Πάνω από 2 την ημέρα αυξάνει τον κίνδυνο υπερέντασης.', levelRequired: 1, icon: '🩷' },
 
   // === DRUGS ===
   { id: 'cigarettes', name: 'Τσιγάρα', type: 'drug', rarity: 'common', happinessBoost: 5, buyPrice: 10, sellPrice: 5, description: 'Ένα πακέτο τσιγάρα.', levelRequired: 1, icon: '🚬' },

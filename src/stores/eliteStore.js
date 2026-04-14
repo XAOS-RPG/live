@@ -3,7 +3,7 @@ import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useCompanyStore } from './companyStore'
 
-export const ELITE_MIN_LEVEL = 30
+export const ELITE_MIN_LEVEL = 2
 
 // ── Shadow Control ──────────────────────────────────────────────────────────
 export const HENCHMAN_TYPES = [

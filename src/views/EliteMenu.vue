@@ -5,7 +5,7 @@
         <span class="elite-crown">👑</span>
         <div>
           <h2 class="page-title">Elite Ascension</h2>
-          <p class="page-sub text-muted">Level 30+ endgame — χωρίς reset, χωρίς απώλειες.</p>
+          <p class="page-sub text-muted">Level 2+ endgame — χωρίς reset, χωρίς απώλειες.</p>
         </div>
       </div>
 
