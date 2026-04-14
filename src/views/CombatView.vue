@@ -84,13 +84,24 @@
       <!-- PVP opponent list -->
       <template v-else>
         <div class="card pvp-notice text-muted">
-          ⚠️ Επίθεση σε παίκτες — κλέβεις χρήματά τους αν κερδίσεις
+          ⚠️ Επίθεση σε πραγματικούς παίκτες — κλέβεις 3% των μετρητών τους αν κερδίσεις
         </div>
-        <div v-for="tier in pvpTiers" :key="tier.key" class="tier-section">
-          <h3 class="tier-title"><span :class="'badge ' + tier.color">{{ tier.label }}</span></h3>
+
+        <div v-if="pvpStore.loading" class="text-muted" style="text-align:center;padding:var(--space-lg)">
+          ⏳ Αναζήτηση αντιπάλων…
+        </div>
+        <div v-else-if="pvpStore.targets.length === 0" class="card text-muted" style="text-align:center;padding:var(--space-lg)">
+          😴 Δεν βρέθηκαν παίκτες κοντά στο επίπεδό σου αυτή τη στιγμή.
+          <br><button class="btn btn-sm btn-outline" style="margin-top:var(--space-sm)" @click="pvpStore.fetchTargets()">🔄 Ανανέωση</button>
+        </div>
+        <template v-else>
+          <div class="pvp-refresh-row">
+            <span class="text-muted" style="font-size:var(--font-size-xs)">{{ pvpStore.targets.length }} παίκτες βρέθηκαν</span>
+            <button class="btn btn-sm btn-outline" @click="pvpStore.fetchTargets()">🔄</button>
+          </div>
           <div class="opp-list">
             <div
-              v-for="user in getUsersByTier(tier.key)"
+              v-for="user in pvpStore.targets"
               :key="user.id"
               class="card opp-card pvp-card"
               :class="{ disabled: !canFight(user) }"
@@ -101,8 +112,7 @@
                 <div class="opp-info">
                   <strong class="pvp-nick">{{ user.nickname }}</strong>
                   <div class="pvp-sub">
-                    <span class="text-muted" style="font-size:var(--font-size-xs)">📍 {{ user.location }}</span>
-                    <span class="text-muted" style="font-size:var(--font-size-xs)">🕐 {{ user.lastSeen }}</span>
+                    <span class="badge badge-success" style="font-size:10px">🟢 Real Player</span>
                   </div>
                 </div>
               </div>
@@ -115,12 +125,12 @@
               </div>
               <div class="opp-meta">
                 <span class="badge badge-info">Επ. {{ user.level }}</span>
-                <span class="text-muted text-mono opp-cash">€{{ user.rewards.cashMin }}-{{ user.rewards.cashMax }}</span>
+                <span class="text-muted text-mono opp-cash">~3% cash</span>
                 <span class="badge badge-success opp-energy">{{ user.energyCost }} ⚡</span>
               </div>
             </div>
           </div>
-        </div>
+        </template>
       </template>
     </template>
 
@@ -148,7 +158,7 @@ import { useMissionStore } from '../stores/missionStore'
 import { useAchievementStore } from '../stores/achievementStore'
 import { useFactionStore } from '../stores/factionStore'
 import { npcs, difficultyLabels } from '../data/npcs'
-import { fakeUsers, pvpTierLabels } from '../data/fakeUsers'
+import { usePvpStore } from '../stores/pvpStore'
 import { calculateHospitalTime } from '../engine/formulas'
 import CombatArena from '../components/combat/CombatArena.vue'
 import BattleEquipPopup from '../components/combat/BattleEquipPopup.vue'
@@ -162,6 +172,7 @@ import {
 
 const player = usePlayerStore()
 const combatStore = useCombatStore()
+const pvpStore = usePvpStore()
 const inventory = useInventoryStore()
 const gameStore = useGameStore()
 const missionStore = useMissionStore()
@@ -273,15 +284,7 @@ const difficulties = [
   { key: 'boss',      ...difficultyLabels.boss },
 ]
 
-const pvpTiers = [
-  { key: 'beginner', ...pvpTierLabels.beginner },
-  { key: 'medium',   ...pvpTierLabels.medium },
-  { key: 'advanced', ...pvpTierLabels.advanced },
-  { key: 'elite',    ...pvpTierLabels.elite },
-]
-
 function getNpcsByDiff(d) { return npcs.filter(n => n.difficulty === d) }
-function getUsersByTier(t) { return fakeUsers.filter(u => u.tier === t) }
 
 function canFight(target) {
   return player.resources.energy.current >= target.energyCost && !player.isIncapacitated
@@ -290,11 +293,11 @@ function canFight(target) {
 function selectMode(m) {
   mode.value = m
   screen.value = 'select'
+  if (m === 'pvp') pvpStore.fetchTargets()
 }
 
 function startFight(opponent) {
   if (!canFight(opponent)) return
-  // Spend energy now (before fight starts)
   player.modifyResource('energy', -opponent.energyCost)
   selectedOpponent.value = opponent
   screen.value = 'fight'
@@ -325,8 +328,21 @@ function onFightFlee() {
   gameStore.saveGame()
 }
 
-function onFightEnd(result) {
+async function onFightEnd(result) {
   clearCombatSession()
+  const opp = selectedOpponent.value
+
+  // For real PVP: write result to Supabase
+  if (result.isPvp && opp?.isReal) {
+    const pvpResult = await pvpStore.attack(opp.id)
+    if (pvpResult?.aborted) {
+      gameStore.addNotification(pvpResult.reason, 'warning')
+      screen.value = 'select'
+      return
+    }
+    // Use server-confirmed cash reward
+    if (pvpResult) result.cashReward = pvpResult.cashReward
+  }
 
   if (result.won) {
     player.addCash(result.cashReward)
@@ -334,9 +350,7 @@ function onFightEnd(result) {
     player.resources.hp.current = result.playerHPRemaining
     player.addMeson(1)
 
-    if (result.itemDropId) {
-      inventory.addItem(result.itemDropId, 1)
-    }
+    if (result.itemDropId) inventory.addItem(result.itemDropId, 1)
 
     player.logActivity(
       `⚔️ ${result.isPvp ? 'PVP' : ''} Νίκη vs ${result.opponentName}: +€${result.cashReward}`,
@@ -346,19 +360,14 @@ function onFightEnd(result) {
       `${result.isPvp ? 'PVP ' : ''}Νίκη! +€${result.cashReward} +${result.xpReward}XP`,
       'success'
     )
-
-    // Track missions & achievements
-    missionStore.updateProgress('combat', 1, {
-      difficulty: selectedOpponent.value.difficulty || null,
-      isPvp: result.isPvp,
-    })
+    missionStore.updateProgress('combat', 1, { difficulty: opp?.difficulty || null, isPvp: result.isPvp })
     missionStore.updateProgress('earn', result.cashReward)
     factionStore.addContribution(1)
     achievementStore.checkAchievements()
   } else {
     const cashLost = takeDefeatCashLoss()
     player.resources.hp.current = 0
-    const hospitalTime = calculateHospitalTime(0, player.resources.hp.max, selectedOpponent.value.level)
+    const hospitalTime = calculateHospitalTime(0, player.resources.hp.max, opp?.level ?? 1)
     player.setStatus('hospital', hospitalTime)
 
     player.logActivity(
@@ -370,13 +379,7 @@ function onFightEnd(result) {
     gameStore.addNotification(loseMsg, 'hospital')
   }
 
-  // Record history
-  combatStore.recordHistory({
-    opponentId: result.opponentId,
-    isPvp: result.isPvp,
-    won: result.won,
-  })
-
+  combatStore.recordHistory({ opponentId: result.opponentId, isPvp: result.isPvp, won: result.won })
   gameStore.saveGame()
 
   if (result.won) {
@@ -481,4 +484,8 @@ function onFightEnd(result) {
 .pvp-card { border-left: 2px solid var(--color-accent); }
 .pvp-nick { font-family: var(--font-family-mono); color: var(--color-accent); }
 .pvp-sub { display: flex; gap: var(--space-sm); margin-top: 2px; flex-wrap: wrap; }
+.pvp-refresh-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: var(--space-xs) 0;
+}
 </style>
