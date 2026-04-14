@@ -137,6 +137,7 @@ const categories = [
     items: [
       { to: '/faction',          icon: '🏴',  label: 'Συμμορία',        badgeKey: null },
       { to: '/faction-fortress', icon: '🏰',  label: 'Οχυρό',           badgeKey: null },
+      { to: '/world-boss',       icon: '🏦',  label: 'Ριφιφί',          badgeKey: null },
       { to: '/friends',          icon: '👥',  label: 'Φίλοι',           badgeKey: 'friends' },
       { to: '/leaderboard',  icon: '🏅',  label: 'Κατάταξη',    badgeKey: null },
       { to: '/achievements', icon: '🏆',  label: 'Επιτεύγματα', badgeKey: 'achievements' },
