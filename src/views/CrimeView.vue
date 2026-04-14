@@ -23,6 +23,19 @@
       <div class="activity-time text-mono text-accent">
         {{ formatTime(player.activityTimeRemaining) }}
       </div>
+      <!-- Χάκερ skill button -->
+      <button
+        v-if="classStore.isXaker"
+        class="btn btn-sm mt-sm"
+        :class="classStore.canUseXaker ? 'btn-primary' : 'btn-outline'"
+        :disabled="!classStore.canUseXaker"
+        @click="classStore.useXakerSkill()"
+      >
+        💻 Χάκερ: Άμεση Ολοκλήρωση
+        <span v-if="!classStore.canUseXaker" class="text-muted" style="font-size:var(--font-size-xs)">
+          ({{ formatTime(classStore.xakerCooldownRemaining) }})
+        </span>
+      </button>
     </div>
 
     <!-- Busy with non-crime activity -->
@@ -139,12 +152,14 @@ import { useRouter } from 'vue-router'
 import { usePlayerStore } from '../stores/playerStore'
 import { useCrimeStore } from '../stores/crimeStore'
 import { useGameStore } from '../stores/gameStore'
+import { useClassStore } from '../stores/classStore'
 import { getItemById } from '../data/items'
 import DiceRoll from '../components/ui/DiceRoll.vue'
 
 const player = usePlayerStore()
 const crimeStore = useCrimeStore()
 const gameStore = useGameStore()
+const classStore = useClassStore()
 const router = useRouter()
 
 const showDice = ref(false)

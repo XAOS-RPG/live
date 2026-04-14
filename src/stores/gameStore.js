@@ -30,6 +30,8 @@ import { useEliteStore } from './eliteStore'
 import { useCardStore } from './cardStore'
 import { useAuctionStore } from './auctionStore'
 import { useDealerStore } from './dealerStore'
+import { useClassStore } from './classStore'
+import { useBossStore } from './bossStore'
 
 let toastId = 0
 
@@ -60,7 +62,7 @@ export const useGameStore = defineStore('game', {
       }
     },
 
-    setInitialized() {
+    setInitialized(skipSave = false) {
       this.initialized = true
       const stockStore = useStockStore()
       stockStore.initializePrices()
@@ -69,7 +71,7 @@ export const useGameStore = defineStore('game', {
       missionStore.refreshMissions()
       missionStore.startNextStoryMission()
       useCraftingStore().initDefaults()
-      this.saveGame()
+      if (!skipSave) this.saveGame()
     },
 
     saveGame() {
@@ -115,6 +117,8 @@ export const useGameStore = defineStore('game', {
             card: useCardStore().getSerializable(),
             auction: useAuctionStore().getSerializable(),
             dealer: useDealerStore().getSerializable(),
+            class: useClassStore().getSerializable(),
+            boss: useBossStore().getSerializable(),
           }
         }
 
@@ -124,7 +128,7 @@ export const useGameStore = defineStore('game', {
         // If user is authenticated, also save to Supabase cloud
         if (authStore.user) {
           // Fire and forget - don't block the UI
-          playerStore.saveProfileToCloud().then(success => {
+          playerStore.saveProfileToCloud(saveData).then(success => {
             if (success) {
               console.log('Cloud save successful')
             } else {
@@ -262,6 +266,12 @@ export const useGameStore = defineStore('game', {
         }
         if (saveData.stores.dealer) {
           useDealerStore().hydrate(saveData.stores.dealer)
+        }
+        if (saveData.stores.class) {
+          useClassStore().hydrate(saveData.stores.class)
+        }
+        if (saveData.stores.boss) {
+          useBossStore().hydrate(saveData.stores.boss)
         }
 
         // Calculate offline progress

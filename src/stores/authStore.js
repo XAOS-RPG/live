@@ -210,29 +210,56 @@ export const useAuthStore = defineStore('auth', {
 
         if (error) throw error
 
-        const playerStore = usePlayerStore()
-        await playerStore.hydrateFromProfile(data)
-
         const gameStore = useGameStore()
-        if (!gameStore.initialized) {
-          gameStore.setInitialized()
-        }
+        const playerStore = usePlayerStore()
+
+        // Compare cloud save_data timestamp vs localStorage timestamp
+        const cloudSave = data.save_data
+        const cloudTs = cloudSave?.timestamp || 0
+
+        const { SAVE_KEY, SAVE_VERSION } = await import('../data/constants')
+        let localTs = 0
+        try {
+          const raw = localStorage.getItem(SAVE_KEY)
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            if (parsed?.version === SAVE_VERSION) localTs = parsed.timestamp || 0
+          }
+        } catch {}
 
         console.log('Player profile loaded:', data)
+        console.log(`Cloud ts: ${cloudTs}, Local ts: ${localTs}`)
+
+        if (cloudSave && cloudTs >= localTs) {
+          // Cloud is newer (or equal) — load full save from cloud
+          console.log('Loading from cloud save (newer)')
+          localStorage.setItem(SAVE_KEY, JSON.stringify(cloudSave))
+          gameStore.loadGame()
+          gameStore.setInitialized(true) // skipSave=true, don't overwrite cloud
+        } else if (localTs > 0) {
+          // Local is newer — load from localStorage, cloud will be updated on next save
+          console.log('Loading from localStorage (newer)')
+          if (!gameStore.initialized) {
+            gameStore.loadGame()
+            gameStore.setInitialized(true)
+          }
+        } else {
+          // No save anywhere — hydrate from profile basics
+          await playerStore.hydrateFromProfile(data)
+          if (!gameStore.initialized) gameStore.setInitialized()
+        }
+
         this.showNotification('Προφίλ φορτώθηκε', 'success')
       } catch (error) {
         console.error('Failed to load player profile:', error)
 
         if (error.code === 'PGRST116') {
-          // Profile row missing — try to create it once, but only if the auth user
-          // actually exists (guard against stale sessions after account deletion).
           console.warn('Profile missing, creating default...')
           const created = await this.createUserProfile(
             this.user.id,
             this.user.user_metadata?.username || this.user.email,
             this.user.email
           )
-          // Only retry if creation succeeded
           if (created) {
             const { data: retryData, error: retryErr } = await supabase
               .from('profiles')
@@ -246,7 +273,6 @@ export const useAuthStore = defineStore('auth', {
               if (!gameStore.initialized) gameStore.setInitialized()
             }
           } else {
-            // Creation failed (e.g. stale session / deleted account) — force sign-out
             console.warn('Profile creation failed — signing out stale session')
             await supabase.auth.signOut()
           }

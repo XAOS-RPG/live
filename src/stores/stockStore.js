@@ -3,6 +3,7 @@ import { stocks, getStockById } from '../data/stocks'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useWeeklyEventStore } from './weeklyEventStore'
+import { useClassStore } from './classStore'
 
 const PRICE_UPDATE_INTERVAL = 60000  // prices update every 60s
 const DIVIDEND_INTERVAL = 900000     // dividends every 15 min
@@ -103,7 +104,7 @@ export const useStockStore = defineStore('stock', {
           const holding = this.portfolio[stock.id]
           if (!holding || holding.shares <= 0) continue
           const price = this.prices[stock.id] || stock.basePrice
-          const dividend = Math.floor(holding.shares * price * stock.dividendRate)
+          const dividend = Math.floor(holding.shares * price * stock.dividendRate * useClassStore().businessBonus)
           if (dividend > 0) {
             totalDividends += dividend
           }

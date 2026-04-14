@@ -9,6 +9,12 @@ import { usePrestigeStore } from './prestigeStore'
 import { useFactionStore } from './factionStore'
 import { useCardStore } from './cardStore'
 
+// Lazy import to avoid circular deps — resolved at call time
+function getClassStore() {
+  const { useClassStore } = require('./classStore')
+  return useClassStore()
+}
+
 export const usePlayerStore = defineStore('player', {
   state: () => ({
     name: '',
@@ -205,6 +211,7 @@ export const usePlayerStore = defineStore('player', {
         this.resources.hp.current = this.resources.hp.max
         this.abilityPoints++
         this.logActivity(`Ανέβηκες Επίπεδο ${this.level}! +1 Ability Point`, 'xp')
+        getClassStore().checkSpecializationUnlock()
       }
     },
 
@@ -450,7 +457,7 @@ export const usePlayerStore = defineStore('player', {
       }
     },
 
-    async saveProfileToCloud() {
+    async saveProfileToCloud(saveData = null) {
       // Push current player state to Supabase profiles table
       const gameStore = useGameStore()
       const authStore = useAuthStore()
@@ -464,38 +471,23 @@ export const usePlayerStore = defineStore('player', {
         // Primary source: getter that reads authStore.user?.id
         let userId = this.userId
         
-        // Fetch session once (we'll need it for logging and possibly fallback)
-        let sessionData = null
         if (!userId) {
-          // Fallback: if userId is null, attempt to retrieve directly from Supabase session
           const { data } = await supabase.auth.getSession()
-          sessionData = data
           userId = data?.session?.user?.id || null
-          // Debug log only, no warning - this is a normal race condition
           console.debug('Fallback userId from session:', userId)
-        } else {
-          // Still fetch session for logging (but avoid extra call if already fetched)
-          const { data } = await supabase.auth.getSession()
-          sessionData = data
         }
 
-        // Final guard clause - if still null, abort gracefully
         if (!userId) {
-          console.debug('Cannot save profile to cloud: userId is null (user not authenticated) - skipping cloud save')
+          console.debug('Cannot save profile to cloud: userId is null - skipping cloud save')
           return false
         }
-
-        // Log auth state for debugging (optional)
-        console.log('Auth store user:', authStore.user)
-        console.log('Supabase auth session:', sessionData)
 
         // Ensure username is not empty (UNIQUE NOT NULL constraint)
         const username = this.name || authStore.user?.email?.split('@')[0] || `user_${userId.substring(0, 8)}`
         
-        // Map local state to database schema (exact column names as in SQL)
         const profileData = {
-          username, // 'username' column is UNIQUE NOT NULL
-          name: this.name,     // 'name' column (display name)
+          username,
+          name: this.name,
           gender: this.gender,
           level: this.level,
           xp: this.xp,
@@ -512,77 +504,21 @@ export const usePlayerStore = defineStore('player', {
           updated_at: new Date().toISOString()
         }
 
-        console.log('Saving profile to cloud:', { userId, profileData })
-
-        // First try to fetch existing profile to see if it exists
-        const { data: existing, error: fetchError } = await supabase
-          .from('profiles')
-          .select('id, created_at')
-          .eq('id', userId)
-          .maybeSingle()
-
-        if (fetchError) {
-          console.warn('Fetch existing profile failed:', fetchError)
-          // Continue anyway, upsert will handle it
+        // Include full save blob if provided (for cross-device sync)
+        if (saveData) {
+          profileData.save_data = saveData
         }
 
-        console.log('Existing profile:', existing ? 'found' : 'not found')
-
-        // If profile doesn't exist, include created_at
-        const upsertPayload = {
-          id: userId,
-          ...profileData
-        }
-        if (!existing) {
-          upsertPayload.created_at = new Date().toISOString()
-        }
-
-        // Use upsert with explicit onConflict
         const { error } = await supabase
           .from('profiles')
-          .upsert(upsertPayload, {
-            onConflict: 'id'
-          })
+          .upsert({ id: userId, ...profileData }, { onConflict: 'id' })
 
-        if (error) {
-          console.error('Upsert error details:', error)
-          console.error('Full error object:', JSON.stringify(error, null, 2))
-          
-          // If upsert fails due to RLS, try to refresh session and retry
-          if (error.code === '42501' || error.message.includes('row-level security')) {
-            console.warn('RLS violation, attempting to refresh session...')
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session) {
-              console.error('No active session after refresh')
-            } else {
-              console.log('Refreshed session user:', session.user?.id)
-            }
-            
-            // Try a direct insert with explicit created_at
-            console.warn('Attempting insert as fallback...')
-            const { error: insertError } = await supabase
-              .from('profiles')
-              .insert({
-                id: userId,
-                ...profileData,
-                created_at: new Date().toISOString()
-              })
-            if (insertError) {
-              console.error('Insert fallback also failed:', insertError)
-              console.error('Insert error details:', JSON.stringify(insertError, null, 2))
-              throw insertError
-            }
-            console.log('Profile inserted via fallback')
-            return true
-          }
-          throw error
-        }
+        if (error) throw error
 
         console.log('Profile saved to cloud')
         return true
       } catch (error) {
         console.error('Failed to save profile to cloud:', error)
-        console.error('Full error stack:', error.stack)
         gameStore.addNotification('Σφάλμα αποθήκευσης στο cloud', 'danger')
         return false
       }

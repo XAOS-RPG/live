@@ -257,6 +257,12 @@ const routes = [
     name: 'black-market',
     component: () => import('../views/BlackMarketView.vue'),
     meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/world-boss',
+    name: 'world-boss',
+    component: () => import('../views/WorldBossView.vue'),
+    meta: { allowIncapacitated: false }
   }
 ]
 

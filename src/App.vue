@@ -16,6 +16,9 @@
     </nav>
     <ToastNotification />
 
+    <!-- Specialization choice modal (shows at level 3) -->
+    <SpecializationModal v-if="classStore.showChoiceModal" />
+
     <!-- Global travel dice: shows on any page when a travel result is pending -->
     <DiceRoll
       :visible="travelDiceVisible"
@@ -31,14 +34,19 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from './stores/gameStore'
 import { usePlayerStore } from './stores/playerStore'
 import { useTravelStore } from './stores/travelStore'
+import { useClassStore } from './stores/classStore'
+import { useAuthStore } from './stores/authStore'
 import StatusBar from './components/layout/StatusBar.vue'
 import NavBar from './components/layout/NavBar.vue'
 import ToastNotification from './components/ui/ToastNotification.vue'
 import DiceRoll from './components/ui/DiceRoll.vue'
+import SpecializationModal from './components/SpecializationModal.vue'
 
 const gameStore = useGameStore()
 const player = usePlayerStore()
 const travelStore = useTravelStore()
+const classStore = useClassStore()
+const authStore = useAuthStore()
 const router = useRouter()
 
 // ── Travel dice (global) ──────────────────────────────────────────────────
@@ -85,8 +93,12 @@ function onTravelDiceDismiss() {
 }
 
 // ── Game init ─────────────────────────────────────────────────────────────
+// Auth is initialized by the router guard (beforeEach) before any route renders.
+// If not authenticated, fall back to localStorage.
 onMounted(() => {
-  gameStore.init()
+  if (!authStore.isAuthenticated && !gameStore.initialized) {
+    gameStore.init()
+  }
 })
 
 watch(() => gameStore.initialized, (val) => {

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { useFactionStore } from './factionStore'
+import { useClassStore } from './classStore'
 
 export const COMPANY_TYPES = [
   {
@@ -81,7 +82,7 @@ export const useCompanyStore = defineStore('company', {
       const base = type.baseIncomePerHour * state.company.level
       const bonus = 1 + state.company.employees * EMPLOYEE_INCOME_BONUS
       const fortressBonus = useFactionStore().fortressAccountingBonus
-      return Math.floor(base * bonus * fortressBonus * elapsedHours)
+      return Math.floor(base * bonus * fortressBonus * useClassStore().businessBonus * elapsedHours)
     },
 
     incomePerHour(state) {
@@ -90,7 +91,7 @@ export const useCompanyStore = defineStore('company', {
       const base = type.baseIncomePerHour * state.company.level
       const bonus = 1 + state.company.employees * EMPLOYEE_INCOME_BONUS
       const fortressBonus = useFactionStore().fortressAccountingBonus
-      return Math.floor(base * bonus * fortressBonus)
+      return Math.floor(base * bonus * fortressBonus * useClassStore().businessBonus)
     },
 
     maxEmployees(state) {

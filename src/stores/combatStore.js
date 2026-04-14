@@ -6,6 +6,7 @@ import {
 } from '../engine/formulas'
 import { usePetStore } from './petStore'
 import { useCraftingStore } from './craftingStore'
+import { useClassStore } from './classStore'
 
 // Status effect tick constants
 const STATUS_DEFS = {
@@ -127,7 +128,7 @@ export const useCombatStore = defineStore('combat', {
         const hit = Math.random() < calculateHitChance(pStats, effNpcDef, playerWeapon)
         if (hit) {
           const craftMultiplier = playerWeapon ? useCraftingStore().getItemMultiplier(playerWeapon.id) : 1.0
-          const rawDmg = Math.floor(calculateCombatDamage(pStats, effNpcDef, playerWeapon) * usePetStore().combatDamageBonus * craftMultiplier)
+          const rawDmg = Math.floor(calculateCombatDamage(pStats, effNpcDef, playerWeapon) * usePetStore().combatDamageBonus * craftMultiplier * useClassStore().combatBonus)
           const dmg = rawDmg
           s.nHP = Math.max(0, s.nHP - dmg)
           entries.push({ turn: s.turn, actor: 'player', action: 'hit', damage: dmg })
