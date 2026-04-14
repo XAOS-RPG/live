@@ -134,6 +134,7 @@ import { usePetStore } from '../stores/petStore'
 import { usePrestigeStore } from '../stores/prestigeStore'
 import { useCardStore } from '../stores/cardStore'
 import { useFactionStore } from '../stores/factionStore'
+import { useEncounterStore } from '../stores/encounterStore'
 import DiceRoll from '../components/ui/DiceRoll.vue'
 
 const player = usePlayerStore()
@@ -145,6 +146,7 @@ const petStore = usePetStore()
 const prestigeStore = usePrestigeStore()
 const cardStore = useCardStore()
 const factionStore = useFactionStore()
+const encounterStore = useEncounterStore()
 
 const selectedStat = ref('strength')
 const showDice = ref(false)
@@ -289,6 +291,8 @@ function onDiceDismiss() {
     }
     player.clearPendingResult()
     gameStore.saveGame()
+    // 5% chance random encounter after gym
+    encounterStore.maybetrigger()
   }
   diceResult.value = null
 }

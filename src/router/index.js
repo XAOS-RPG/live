@@ -263,6 +263,12 @@ const routes = [
     name: 'world-boss',
     component: () => import('../views/WorldBossView.vue'),
     meta: { allowIncapacitated: false }
+  },
+  {
+    path: '/volunteering',
+    name: 'volunteering',
+    component: () => import('../views/Volunteering.vue'),
+    meta: { allowIncapacitated: true }
   }
 ]
 

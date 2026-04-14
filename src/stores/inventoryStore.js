@@ -110,6 +110,8 @@ export const useInventoryStore = defineStore('inventory', {
       if (!owned || owned.quantity <= 0) return false
 
       if (item.type === 'medical') {
+        // Medical Badge: +20% to all heal amounts
+        const badgeMult = player.hasMedicalBadge ? 1.20 : 1.0
         if (item.id === 'pinkbull') {
           const todayKey = new Date().toDateString()
           if (this.pinkbullDayKey !== todayKey) {
@@ -132,7 +134,7 @@ export const useInventoryStore = defineStore('inventory', {
           return true
         }
         if (item.healAmount) {
-          player.modifyResource('hp', item.healAmount)
+          player.modifyResource('hp', Math.floor(item.healAmount * badgeMult))
         }
         if (item.energyBoost) {
           player.modifyResource('energy', item.energyBoost)

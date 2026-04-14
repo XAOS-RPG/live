@@ -13,6 +13,7 @@ import { usePetStore } from './petStore'
 import { useCraftingStore } from './craftingStore'
 import { useCardStore } from './cardStore'
 import { useFactionStore } from './factionStore'
+import { useEncounterStore } from './encounterStore'
 
 export const useCrimeStore = defineStore('crime', {
   state: () => ({
@@ -198,6 +199,8 @@ export const useCrimeStore = defineStore('crime', {
         missionStore.updateProgress('earn', result.rewards.cash)
       }
       useAchievementStore().checkAchievements()
+      // 5% chance random encounter
+      useEncounterStore().maybetrigger()
 
       gameStore.saveGame()
     },

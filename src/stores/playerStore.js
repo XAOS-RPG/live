@@ -72,6 +72,9 @@ export const usePlayerStore = defineStore('player', {
     createdAt: Date.now(),
 
     activityLog: [],
+
+    // Medical Badge from blood donation: { expiresAt: timestamp } or null
+    medicalBadge: null,
   }),
 
   getters: {
@@ -258,8 +261,27 @@ export const usePlayerStore = defineStore('player', {
       this.statusTimerEnd = null
     },
 
-    addFilotimo(amount) {
+    /** Raw filotimo change — no multiplier (used internally for penalties) */
+    addFilotimoRaw(amount) {
       this.filotimo = Math.min(FILOTIMO_MAX, Math.max(0, this.filotimo + amount))
+    },
+
+    /** Filotimo gain with Ευεργέτης card multiplier applied (positive amounts only) */
+    addFilotimo(amount) {
+      if (amount > 0) {
+        amount = Math.round(amount * useCardStore().filotimoBonus)
+      }
+      this.filotimo = Math.min(FILOTIMO_MAX, Math.max(0, this.filotimo + amount))
+    },
+
+    /** Grant the Medical Badge buff for 24 hours */
+    grantMedicalBadge() {
+      this.medicalBadge = { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }
+    },
+
+    /** Returns true if Medical Badge is currently active */
+    get hasMedicalBadge() {
+      return !!(this.medicalBadge && this.medicalBadge.expiresAt > Date.now())
     },
 
     addMeson(amount) {
@@ -412,6 +434,7 @@ export const usePlayerStore = defineStore('player', {
         lastTick: this.lastTick,
         createdAt: this.createdAt,
         activityLog: [...this.activityLog],
+        medicalBadge: this.medicalBadge ? { ...this.medicalBadge } : null,
       }
     },
 
@@ -429,6 +452,8 @@ export const usePlayerStore = defineStore('player', {
           }
         } else if (key === 'regenAccumulators') {
           Object.assign(this.regenAccumulators, data.regenAccumulators)
+        } else if (key === 'medicalBadge') {
+          this.medicalBadge = data.medicalBadge || null
         } else if (this.$state.hasOwnProperty(key)) {
           this[key] = data[key]
         }

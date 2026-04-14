@@ -32,6 +32,8 @@ import { useAuctionStore } from './auctionStore'
 import { useDealerStore } from './dealerStore'
 import { useClassStore } from './classStore'
 import { useBossStore } from './bossStore'
+import { useVolunteerStore } from './volunteerStore'
+import { useEncounterStore } from './encounterStore'
 
 let toastId = 0
 
@@ -119,6 +121,7 @@ export const useGameStore = defineStore('game', {
             dealer: useDealerStore().getSerializable(),
             class: useClassStore().getSerializable(),
             boss: useBossStore().getSerializable(),
+            volunteer: useVolunteerStore().getSerializable(),
           }
         }
 
@@ -273,6 +276,9 @@ export const useGameStore = defineStore('game', {
         if (saveData.stores.boss) {
           useBossStore().hydrate(saveData.stores.boss)
         }
+        if (saveData.stores.volunteer) {
+          useVolunteerStore().hydrate(saveData.stores.volunteer)
+        }
 
         // Calculate offline progress
         const elapsed = Math.min(MAX_OFFLINE_MS, Date.now() - (saveData.timestamp || Date.now()))
@@ -290,6 +296,7 @@ export const useGameStore = defineStore('game', {
         useAchievementStore().checkAchievements()
         useWeeklyEventStore().checkWeeklyRotation()
         useLoanStore().dailyLoanCheck()
+        useFactionStore().tickPantopoleio()
 
         return true
       } catch (e) {

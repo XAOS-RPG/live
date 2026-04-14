@@ -138,6 +138,9 @@ const categories = [
       { to: '/faction',          icon: '🏴',  label: 'Συμμορία',        badgeKey: null },
       { to: '/faction-fortress', icon: '🏰',  label: 'Οχυρό',           badgeKey: null },
       { to: '/world-boss',       icon: '🏦',  label: 'Ριφιφί',          badgeKey: null },
+      { to: '/volunteering',     icon: '🤝',  label: 'Εθελοντισμός',    badgeKey: null },
+      { to: '/jail',             icon: '🔒',  label: 'Φυλακή',          badgeKey: null },
+      { to: '/hospital',         icon: '🏥',  label: 'Νοσοκομείο',     badgeKey: null },
       { to: '/friends',          icon: '👥',  label: 'Φίλοι',           badgeKey: 'friends' },
       { to: '/leaderboard',  icon: '🏅',  label: 'Κατάταξη',    badgeKey: null },
       { to: '/achievements', icon: '🏆',  label: 'Επιτεύγματα', badgeKey: 'achievements' },
@@ -157,6 +160,8 @@ const categories = [
 ]
 
 const standaloneItems = [
+  { to: '/messages', icon: '✉️',  label: 'Μηνύματα',  badgeKey: null },
+  { to: '/forums',   icon: '💬',  label: 'Φόρουμ',    badgeKey: null },
   { to: '/settings', icon: '⚙️',  label: 'Ρυθμίσεις', badgeKey: null },
 ]
 

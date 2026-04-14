@@ -32,6 +32,15 @@ export const FORTRESS_BUILDINGS = {
     baseCost: 10_000,
     maxLevel: 10,
   },
+  pantopoleio: {
+    id: 'pantopoleio',
+    name: 'Κοινωνικό Παντοπωλείο',
+    icon: '🏪',
+    description: 'Παντοπωλείο για οικογένειες που έχουν ανάγκη. Ανεβάζει το Φιλότιμο όλων των μελών κάθε μέρα.',
+    buffLabel: '+2 Φιλότιμο/ημέρα ανά επίπεδο για όλα τα μέλη',
+    baseCost: 12_000,
+    maxLevel: 10,
+  },
 }
 
 /**
@@ -58,7 +67,9 @@ export const useFactionStore = defineStore('faction', {
       gym: 0,
       accounting: 0,
       ops: 0,
+      pantopoleio: 0,
     },
+    lastPantopoleioTick: null,  // 'YYYY-MM-DD' string
   }),
 
   getters: {
@@ -114,6 +125,11 @@ export const useFactionStore = defineStore('faction', {
       return this.fortressLevels.ops
     },
 
+    /** Daily filotimo per member from Κοινωνικό Παντοπωλείο */
+    fortressPantopoleioFilotimo() {
+      return this.fortressLevels.pantopoleio * 2
+    },
+
     // ── Per-building upgrade cost ─────────────────────────────────────────
     gymUpgradeCost() {
       return fortressUpgradeCost('gym', this.fortressLevels.gym)
@@ -121,6 +137,10 @@ export const useFactionStore = defineStore('faction', {
     accountingUpgradeCost() {
       return fortressUpgradeCost('accounting', this.fortressLevels.accounting)
     },
+    pantopoleioUpgradeCost() {
+      return fortressUpgradeCost('pantopoleio', this.fortressLevels.pantopoleio)
+    },
+
     opsUpgradeCost() {
       return fortressUpgradeCost('ops', this.fortressLevels.ops)
     },
@@ -245,6 +265,20 @@ export const useFactionStore = defineStore('faction', {
       return true
     },
 
+    /** Called once per calendar day from gameStore daily tick */
+    tickPantopoleio() {
+      if (!this.currentFaction) return
+      const level = this.fortressLevels.pantopoleio
+      if (level <= 0) return
+      const today = new Date().toISOString().split('T')[0]
+      if (this.lastPantopoleioTick === today) return
+      this.lastPantopoleioTick = today
+      const gain = level * 2
+      const player = usePlayerStore()
+      player.addFilotimo(gain)
+      useGameStore().addNotification(`🏪 Κοινωνικό Παντοπωλείο: +${gain} Φιλότιμο`, 'success')
+    },
+
     // ── Stat bonuses from faction membership ─────────────────────────────
     getStatBonuses() {
       const f = this.faction
@@ -269,6 +303,7 @@ export const useFactionStore = defineStore('faction', {
         rank: this.rank,
         vault: this.vault,
         fortressLevels: { ...this.fortressLevels },
+        lastPantopoleioTick: this.lastPantopoleioTick,
       }
     },
 
@@ -283,7 +318,9 @@ export const useFactionStore = defineStore('faction', {
         this.fortressLevels.gym = data.fortressLevels.gym ?? 0
         this.fortressLevels.accounting = data.fortressLevels.accounting ?? 0
         this.fortressLevels.ops = data.fortressLevels.ops ?? 0
+        this.fortressLevels.pantopoleio = data.fortressLevels.pantopoleio ?? 0
       }
+      if (data.lastPantopoleioTick !== undefined) this.lastPantopoleioTick = data.lastPantopoleioTick
     },
   },
 })

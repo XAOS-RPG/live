@@ -185,6 +185,13 @@
             {{ faction.fortressLevels.ops > 0 ? `+${faction.fortressNerveBonus}` : '—' }}
           </span>
         </div>
+        <div class="player-buff-row" :class="{ inactive: faction.fortressLevels.pantopoleio === 0 }">
+          <span class="pbuff-icon">🏪</span>
+          <span class="pbuff-label">Φιλότιμο/ημέρα</span>
+          <span class="pbuff-value text-mono" :class="faction.fortressLevels.pantopoleio > 0 ? 'text-success' : 'text-muted'">
+            {{ faction.fortressLevels.pantopoleio > 0 ? `+${faction.fortressPantopoleioFilotimo}` : '—' }}
+          </span>
+        </div>
       </div>
     </template>
   </div>
@@ -232,6 +239,7 @@ function buildingActiveBuff(bKey) {
   if (bKey === 'gym') return `+${lvl * 2}% πολλαπλασιαστής Γυμναστηρίου`
   if (bKey === 'accounting') return `+${lvl * 2}% παθητικό εισόδημα Εταιρείας`
   if (bKey === 'ops') return `+${lvl} μέγ. Θράσος, +${lvl}% επιτυχία Εγκλήματος`
+  if (bKey === 'pantopoleio') return `+${lvl * 2} Φιλότιμο/ημέρα`
   return ''
 }
 
@@ -240,6 +248,7 @@ function buildingNextBuff(bKey) {
   if (bKey === 'gym') return `+${nextLvl * 2}% πολλαπλασιαστής Γυμναστηρίου`
   if (bKey === 'accounting') return `+${nextLvl * 2}% παθητικό εισόδημα Εταιρείας`
   if (bKey === 'ops') return `+${nextLvl} μέγ. Θράσος, +${nextLvl}% επιτυχία Εγκλήματος`
+  if (bKey === 'pantopoleio') return `+${nextLvl * 2} Φιλότιμο/ημέρα`
   return ''
 }
 </script>

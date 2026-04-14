@@ -135,6 +135,15 @@ export const CARDS = [
     buff: { type: 'hpMax', value: 20 },
     buffLabel: '+20 μέγιστα HP',
   },
+  {
+    id: 'evergetis',
+    name: 'Ο Ευεργέτης',
+    icon: '💛',
+    rarity: 'rare',
+    description: 'Αγαθοεργός της πόλης. Κάθε πράξη τιμής αποδίδεται περισσότερο.',
+    buff: { type: 'filotimoGain', value: 0.20 },
+    buffLabel: '+20% σε όλα τα κέρδη Φιλότιμου',
+  },
 ]
 
 export function getCardById(id) {
@@ -286,6 +295,15 @@ export const useCardStore = defineStore('card', {
       let total = 0
       for (const card of this.equippedCardDefs) {
         if (card.buff.type === 'xpGain') total += card.buff.value
+      }
+      return 1 + total
+    },
+
+    // ── Filotimo buff ────────────────────────────────────────────────────────
+    filotimoBonus() {
+      let total = 0
+      for (const card of this.equippedCardDefs) {
+        if (card.buff.type === 'filotimoGain') total += card.buff.value
       }
       return 1 + total
     },

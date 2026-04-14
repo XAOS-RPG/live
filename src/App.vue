@@ -19,6 +19,9 @@
     <!-- Specialization choice modal (shows at level 3) -->
     <SpecializationModal v-if="classStore.showChoiceModal" />
 
+    <!-- Random Encounter popup -->
+    <RandomEncounter />
+
     <!-- Global travel dice: shows on any page when a travel result is pending -->
     <DiceRoll
       :visible="travelDiceVisible"
@@ -41,6 +44,7 @@ import NavBar from './components/layout/NavBar.vue'
 import ToastNotification from './components/ui/ToastNotification.vue'
 import DiceRoll from './components/ui/DiceRoll.vue'
 import SpecializationModal from './components/SpecializationModal.vue'
+import RandomEncounter from './components/RandomEncounter.vue'
 
 const gameStore = useGameStore()
 const player = usePlayerStore()
