@@ -4,6 +4,7 @@ import {
   calculateCombatDamage, calculateHitChance,
   ABILITY_DEFS, getAbilityStaminaCost,
 } from '../engine/formulas'
+import { usePetStore } from './petStore'
 
 export const useCombatStore = defineStore('combat', {
   state: () => ({
@@ -99,7 +100,7 @@ export const useCombatStore = defineStore('combat', {
         const effNpcDef = { ...nStats, defense: nStats.defense * (1 - s.npcDefDebuff) }
         const hit = Math.random() < calculateHitChance(pStats, effNpcDef, playerWeapon)
         if (hit) {
-          const dmg = calculateCombatDamage(pStats, effNpcDef, playerWeapon)
+          const dmg = Math.floor(calculateCombatDamage(pStats, effNpcDef, playerWeapon) * usePetStore().combatDamageBonus)
           s.nHP = Math.max(0, s.nHP - dmg)
           entries.push({ turn: s.turn, actor: 'player', action: 'hit', damage: dmg })
           if (s.nHP <= 0) { s.over = true; s.winner = 'player'; s.log.push(...entries); return entries }

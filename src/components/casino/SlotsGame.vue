@@ -56,6 +56,7 @@
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from '../../stores/playerStore'
 import { useCasinoStore } from '../../stores/casinoStore'
+import { usePetStore } from '../../stores/petStore'
 
 const player = usePlayerStore()
 const casino = useCasinoStore()
@@ -116,7 +117,7 @@ function spin() {
   // Pre-determine result
   const midSymbols = [pickSymbol(), pickSymbol(), pickSymbol()]
   const win = midSymbols[0].id === midSymbols[1].id && midSymbols[1].id === midSymbols[2].id
-  const winAmount = win ? bet.value * midSymbols[0].mult : 0
+  const winAmount = win ? Math.floor(bet.value * midSymbols[0].mult * usePetStore().casinoLuckBonus) : 0
   const finalReels = midSymbols.map(mid => [pickSymbol(), mid, pickSymbol()])
 
   // Animate spinning

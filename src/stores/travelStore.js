@@ -3,6 +3,7 @@ import { locations, getLocationById, getTravelTime } from '../data/locations'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useMissionStore } from './missionStore'
+import { useSmugglingStore } from './smugglingStore'
 
 // Cost per minute of train travel (€)
 const COST_PER_MINUTE = 25
@@ -122,6 +123,11 @@ export const useTravelStore = defineStore('travel', {
 
       this.currentLocation = destinationId
       const name = destination ? destination.name : destinationId
+
+      // Police checkpoint for smuggling cargo
+      const smuggling = useSmugglingStore()
+      const busted = smuggling.checkPoliceCheckpoint()
+      if (busted) return // player is in jail, skip arrival message
 
       player.logActivity(`✈️ Έφτασες: ${name}`, 'info')
       gameStore.addNotification(`Καλώς ήρθες στ${getArticle(name)} ${name}!`, 'success')

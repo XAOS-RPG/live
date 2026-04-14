@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { stocks, getStockById } from '../data/stocks'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
+import { useWeeklyEventStore } from './weeklyEventStore'
 
 const PRICE_UPDATE_INTERVAL = 60000  // prices update every 60s
 const DIVIDEND_INTERVAL = 900000     // dividends every 15 min
@@ -78,7 +79,8 @@ export const useStockStore = defineStore('stock', {
           const current = this.prices[stock.id] || stock.basePrice
           // Random walk with mean reversion
           const meanReversion = (stock.basePrice - current) * 0.01
-          const randomChange = (Math.random() - 0.5) * 2 * stock.volatility * current
+          const volatilityMul = useWeeklyEventStore().stockVolatilityMultiplier
+          const randomChange = (Math.random() - 0.5) * 2 * stock.volatility * volatilityMul * current
           const newPrice = Math.max(0.10, current + randomChange + meanReversion)
           this.prices[stock.id] = Math.round(newPrice * 100) / 100
 

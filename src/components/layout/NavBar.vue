@@ -113,6 +113,8 @@ const categories = [
       { to: '/job',      icon: '💼',  label: 'Δουλειά',       badgeKey: 'job' },
       { to: '/travel',   icon: '✈️',  label: 'Ταξίδι',        badgeKey: null },
       { to: '/casino',   icon: '🎲',  label: 'Τυχερά',        badgeKey: null },
+      { to: '/smuggling', icon: '🚬', label: 'Λαθρεμπόριο',  badgeKey: null },
+      { to: '/loans',     icon: '🦈', label: 'Τοκογλύφος',   badgeKey: null },
       { to: '/kontres',  icon: '🏎️',  label: 'Κόντρες',       badgeKey: null },
     ],
   },
@@ -123,6 +125,8 @@ const categories = [
       { to: '/bazaar',    icon: '🏪',  label: 'Παζάρι',     badgeKey: 'bazaar' },
       { to: '/inventory', icon: '🎒',  label: 'Τσέπη',      badgeKey: null },
       { to: '/bounties',  icon: '🎯',  label: 'Συμβόλαια',  badgeKey: null },
+      { to: '/pets',      icon: '🐾',  label: 'Κατοικίδια', badgeKey: null },
+      { to: '/workshop', icon: '🔨',  label: 'Εργαστήριο', badgeKey: null },
     ],
   },
   {
@@ -142,6 +146,7 @@ const categories = [
       { to: '/masteries', icon: '🌳',  label: 'Ικανότητες',  badgeKey: 'masteries' },
       { to: '/daily',     icon: '📅',  label: 'Bonus',       badgeKey: 'daily' },
       { to: '/missions',  icon: '📋',  label: 'Αποστολές',   badgeKey: 'missions' },
+      { to: '/prestige', icon: '🌟',  label: 'Αναγέννηση',  badgeKey: null },
     ],
   },
 ]

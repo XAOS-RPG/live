@@ -18,6 +18,16 @@
       </div>
     </div>
 
+    <!-- Weekly Event Banner -->
+    <router-link v-if="weeklyEvent.activeEvent" to="/events-hub" class="card weekly-event-home" :style="{ borderLeftColor: weeklyEvent.activeEvent.color }" style="text-decoration:none; color:inherit;">
+      <span class="weekly-event-home-icon">{{ weeklyEvent.activeEvent.icon }}</span>
+      <div style="flex:1; min-width:0;">
+        <strong :style="{ color: weeklyEvent.activeEvent.color }">{{ weeklyEvent.activeEvent.name }}</strong>
+        <p class="text-muted" style="margin:0; font-size:var(--font-size-xs);">{{ weeklyEvent.activeEvent.description }}</p>
+      </div>
+      <span class="text-accent text-mono" style="font-size:var(--font-size-sm);">{{ weeklyEvent.daysLeft }}d</span>
+    </router-link>
+
     <!-- Εκκρεμές ζάρι: task ολοκληρώθηκε, περιμένει ρίψη -->
     <div v-if="pendingDiceBanner" class="card pending-dice-card">
       <div class="pending-dice-inner">
@@ -111,14 +121,16 @@
 <script setup>
 import { computed } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
+import { useWeeklyEventStore } from '../stores/weeklyEventStore'
 
 const player = usePlayerStore()
+const weeklyEvent = useWeeklyEventStore()
 
 /** Όταν υπάρχει αποτέλεσμα που χρειάζεται ζάρι (όχι education — κλείνει αυτόματα). */
 const pendingDiceBanner = computed(() => {
   const r = player.pendingResult
   if (!r) return null
-  if (r.type === 'education') return null
+  if (r.type === 'education' || r.type === 'crafting') return null
 
   const icon = r.icon || '🎲'
   const label = r.label || 'Δραστηριότητα'
@@ -367,5 +379,22 @@ function formatTimeAgo(timestamp) {
   font-size: var(--font-size-xs);
   white-space: nowrap;
   min-width: 60px;
+}
+
+.weekly-event-home {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border-left: 4px solid;
+  transition: background var(--transition-fast);
+}
+
+.weekly-event-home:hover {
+  background: var(--bg-surface-raised);
+}
+
+.weekly-event-home-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
 }
 </style>

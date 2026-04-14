@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { getCourseById } from '../data/courses'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
+import { usePetStore } from './petStore'
 
 export const useEducationStore = defineStore('education', {
   state: () => ({
@@ -77,7 +78,7 @@ export const useEducationStore = defineStore('education', {
         id: courseId,
         label: course.name,
         icon: course.icon,
-        duration: course.duration,
+        duration: Math.floor(course.duration / usePetStore().eduSpeedBonus),
         preRolled: {
           success: true,
           roll: 1,

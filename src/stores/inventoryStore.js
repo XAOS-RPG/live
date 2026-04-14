@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { getItemById } from '../data/items'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
+import { useWeeklyEventStore } from './weeklyEventStore'
+import { usePetStore } from './petStore'
 
 export const useInventoryStore = defineStore('inventory', {
   state: () => ({
@@ -153,7 +155,7 @@ export const useInventoryStore = defineStore('inventory', {
 
       const player = usePlayerStore()
       const gameStore = useGameStore()
-      const total = item.sellPrice * quantity
+      const total = Math.floor(item.sellPrice * quantity * usePetStore().sellPriceBonus)
 
       this.removeItem(itemId, quantity)
       player.addCash(total)
@@ -169,7 +171,8 @@ export const useInventoryStore = defineStore('inventory', {
 
       const player = usePlayerStore()
       const gameStore = useGameStore()
-      const total = item.buyPrice * quantity
+      const weeklyEvent = useWeeklyEventStore()
+      const total = Math.floor(item.buyPrice * quantity * weeklyEvent.shopPriceMultiplier)
 
       if (player.cash < total) {
         gameStore.addNotification('Δεν έχεις αρκετά χρήματα!', 'danger')

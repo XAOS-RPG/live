@@ -20,6 +20,12 @@ import { useCompanyStore } from './companyStore'
 import { useBountyStore } from './bountyStore'
 import { useRacingStore } from './racingStore'
 import { useEventsHubStore } from './eventsHubStore'
+import { useWeeklyEventStore } from './weeklyEventStore'
+import { useSmugglingStore } from './smugglingStore'
+import { usePetStore } from './petStore'
+import { useCraftingStore } from './craftingStore'
+import { useLoanStore } from './loanStore'
+import { usePrestigeStore } from './prestigeStore'
 
 let toastId = 0
 
@@ -58,6 +64,7 @@ export const useGameStore = defineStore('game', {
       const missionStore = useMissionStore()
       missionStore.refreshMissions()
       missionStore.startNextStoryMission()
+      useCraftingStore().initDefaults()
       this.saveGame()
     },
 
@@ -94,6 +101,12 @@ export const useGameStore = defineStore('game', {
             bounty: useBountyStore().getSerializable(),
             racing: useRacingStore().getSerializable(),
             eventsHub: useEventsHubStore().getSerializable(),
+            weeklyEvent: useWeeklyEventStore().getSerializable(),
+            smuggling: useSmugglingStore().getSerializable(),
+            pet: usePetStore().getSerializable(),
+            crafting: useCraftingStore().getSerializable(),
+            loan: useLoanStore().getSerializable(),
+            prestige: usePrestigeStore().getSerializable(),
           }
         }
 
@@ -210,6 +223,26 @@ export const useGameStore = defineStore('game', {
         if (saveData.stores.eventsHub) {
           useEventsHubStore().hydrate(saveData.stores.eventsHub)
         }
+        if (saveData.stores.weeklyEvent) {
+          useWeeklyEventStore().hydrate(saveData.stores.weeklyEvent)
+        }
+        if (saveData.stores.smuggling) {
+          useSmugglingStore().hydrate(saveData.stores.smuggling)
+        }
+        if (saveData.stores.pet) {
+          usePetStore().hydrate(saveData.stores.pet)
+        }
+        const craftingStore = useCraftingStore()
+        if (saveData.stores.crafting) {
+          craftingStore.hydrate(saveData.stores.crafting)
+        }
+        craftingStore.initDefaults()
+        if (saveData.stores.loan) {
+          useLoanStore().hydrate(saveData.stores.loan)
+        }
+        if (saveData.stores.prestige) {
+          usePrestigeStore().hydrate(saveData.stores.prestige)
+        }
 
         // Calculate offline progress
         const elapsed = Math.min(MAX_OFFLINE_MS, Date.now() - (saveData.timestamp || Date.now()))
@@ -225,6 +258,8 @@ export const useGameStore = defineStore('game', {
         missionStore.refreshMissions()
         missionStore.startNextStoryMission()
         useAchievementStore().checkAchievements()
+        useWeeklyEventStore().checkWeeklyRotation()
+        useLoanStore().dailyLoanCheck()
 
         return true
       } catch (e) {
@@ -319,6 +354,9 @@ export const useGameStore = defineStore('game', {
 
         // Bazaar RNG sell tick (every 15 min)
         useBazaarStore().tickBazaar()
+
+        // Pet happiness decay / abandonment check
+        usePetStore().tickPets()
 
         // Auto-save
         if (now - lastSave >= AUTO_SAVE_INTERVAL_MS) {

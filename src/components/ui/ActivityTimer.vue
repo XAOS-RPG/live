@@ -125,6 +125,7 @@ function navigateToActivity() {
   else if (type === 'gym') router.push('/gym')
   else if (type === 'travel') router.push('/travel')
   else if (type === 'education') router.push('/education')
+  else if (type === 'crafting') router.push('/workshop')
 }
 </script>
 

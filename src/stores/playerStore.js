@@ -3,6 +3,9 @@ import { RESOURCE_DEFAULTS, REGEN_RATES, FILOTIMO_MAX, MESON_MAX, ACTIVITY_LOG_M
 import { supabase } from '../lib/supabaseClient'
 import { useGameStore } from './gameStore'
 import { useAuthStore } from './authStore'
+import { useWeeklyEventStore } from './weeklyEventStore'
+import { usePetStore } from './petStore'
+import { usePrestigeStore } from './prestigeStore'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -173,6 +176,9 @@ export const usePlayerStore = defineStore('player', {
     },
 
     addXP(amount) {
+      // Apply weekly event XP multiplier
+      const weeklyEvent = useWeeklyEventStore()
+      amount = Math.floor(amount * weeklyEvent.xpMultiplier * usePetStore().xpBoostBonus * usePrestigeStore().xpMultiplier)
       this.xp += amount
       while (this.xp >= this.xpToNextLevel) {
         this.xp -= this.xpToNextLevel
@@ -186,7 +192,7 @@ export const usePlayerStore = defineStore('player', {
     },
 
     addCash(amount) {
-      this.cash += amount
+      this.cash += Math.floor(amount * usePrestigeStore().cashMultiplier)
     },
 
     removeCash(amount) {
@@ -213,6 +219,12 @@ export const usePlayerStore = defineStore('player', {
     },
 
     setStatus(status, durationMs) {
+      // Pet snake reduces jail time
+      if (status === 'jail') {
+        const petReduction = usePetStore().jailReductionBonus
+        // jailReductionBonus returns e.g. 1.03 for +3%, we invert: 1/1.03 ≈ 0.97
+        durationMs = Math.floor(durationMs / petReduction)
+      }
       this.status = status
       this.statusTimerEnd = Date.now() + durationMs
     },
@@ -305,12 +317,17 @@ export const usePlayerStore = defineStore('player', {
       }
 
       // Regen resources
+      const weeklyEvent = useWeeklyEventStore()
       for (const [key, rate] of Object.entries(REGEN_RATES)) {
         const res = this.resources[key]
         if (!res) continue
 
         // Calculate how much to accumulate
-        const regenPerMs = rate.amount / rate.intervalMs
+        let regenPerMs = rate.amount / rate.intervalMs
+        // Apply weekly event happiness decay modifier
+        if (key === 'happiness' && rate.amount < 0) {
+          regenPerMs *= weeklyEvent.happinessDecayMultiplier
+        }
         this.regenAccumulators[key] += deltaMs * regenPerMs
 
         if (rate.amount > 0) {

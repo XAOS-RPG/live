@@ -3,6 +3,23 @@
     <h2 class="page-title">📡 Events Hub</h2>
     <p class="page-sub text-muted">Νέα, στατιστικά και τυχαία συμβάντα στην πόλη.</p>
 
+    <!-- Weekly Event Banner -->
+    <div v-if="weeklyEvent.activeEvent" class="card weekly-event-banner" :style="{ borderColor: weeklyEvent.activeEvent.color }">
+      <div class="weekly-event-row">
+        <span class="weekly-event-icon">{{ weeklyEvent.activeEvent.icon }}</span>
+        <div class="weekly-event-info">
+          <strong class="weekly-event-name" :style="{ color: weeklyEvent.activeEvent.color }">
+            {{ weeklyEvent.activeEvent.name }}
+          </strong>
+          <p class="weekly-event-desc">{{ weeklyEvent.activeEvent.description }}</p>
+        </div>
+        <div class="weekly-event-timer">
+          <span class="weekly-event-days">{{ weeklyEvent.daysLeft }}d</span>
+          <span class="text-muted" style="font-size: 10px;">απομένουν</span>
+        </div>
+      </div>
+    </div>
+
     <div v-if="eventsHub.hubUnread" class="card read-banner">
       <div class="read-banner-row">
         <span class="read-banner-icon">🔔</span>
@@ -127,10 +144,12 @@
 import { ref, computed } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useEventsHubStore } from '../stores/eventsHubStore'
+import { useWeeklyEventStore } from '../stores/weeklyEventStore'
 import { fakeUsers } from '../data/fakeUsers'
 
 const player = usePlayerStore()
 const eventsHub = useEventsHubStore()
+const weeklyEvent = useWeeklyEventStore()
 const activeTab = ref('city')
 
 const tabs = [
@@ -406,4 +425,58 @@ function formatAgo(ts) {
 
 .top-name { flex: 1; }
 .top-val  { font-size: var(--font-size-xs); }
+
+/* Weekly Event Banner */
+.weekly-event-banner {
+  border-left: 4px solid;
+  background: rgba(255, 255, 255, 0.03);
+  animation: eventGlow 3s ease-in-out infinite;
+}
+
+@keyframes eventGlow {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 12px rgba(255, 215, 0, 0.15); }
+}
+
+.weekly-event-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.weekly-event-icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.weekly-event-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.weekly-event-name {
+  font-size: var(--font-size-md);
+  display: block;
+}
+
+.weekly-event-desc {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.weekly-event-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.weekly-event-days {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-family-mono);
+  color: var(--color-accent);
+}
 </style>

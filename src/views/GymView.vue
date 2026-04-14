@@ -129,12 +129,18 @@ import { getExercisesForStat } from '../data/exercises'
 import { calculateStatGain } from '../engine/formulas'
 import { useTravelStore } from '../stores/travelStore'
 import { useMissionStore } from '../stores/missionStore'
+import { useWeeklyEventStore } from '../stores/weeklyEventStore'
+import { usePetStore } from '../stores/petStore'
+import { usePrestigeStore } from '../stores/prestigeStore'
 import DiceRoll from '../components/ui/DiceRoll.vue'
 
 const player = usePlayerStore()
 const gameStore = useGameStore()
 const missionStore = useMissionStore()
 const travelStore = useTravelStore()
+const weeklyEvent = useWeeklyEventStore()
+const petStore = usePetStore()
+const prestigeStore = usePrestigeStore()
 
 const selectedStat = ref('strength')
 const showDice = ref(false)
@@ -207,7 +213,7 @@ function startExercise(ex) {
     player.resources.happiness.current,
     player.resources.happiness.max
   )
-  const baseGainWithExercise = baseGain * ex.multiplier * travelStore.gymBoostMultiplier
+  const baseGainWithExercise = baseGain * ex.multiplier * travelStore.gymBoostMultiplier * weeklyEvent.gymGainMultiplier * petStore.gymGainBonus * prestigeStore.gymMultiplier
 
   // Pre-roll the d6 now (prevents save-scumming); player doesn't see it until they stop the die
   const roll = Math.floor(Math.random() * 6) + 1

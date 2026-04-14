@@ -195,6 +195,36 @@ const routes = [
     meta: { allowIncapacitated: true }
   },
   {
+    path: '/smuggling',
+    name: 'smuggling',
+    component: () => import('../views/SmugglingView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/pets',
+    name: 'pets',
+    component: () => import('../views/PetView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/workshop',
+    name: 'workshop',
+    component: () => import('../views/WorkshopView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/loans',
+    name: 'loans',
+    component: () => import('../views/LoanSharkView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/prestige',
+    name: 'prestige',
+    component: () => import('../views/PrestigeView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('../views/SettingsView.vue'),
