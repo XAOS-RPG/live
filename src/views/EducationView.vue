@@ -40,7 +40,7 @@
     </div>
 
     <!-- Category tabs -->
-    <div v-if="!player.activeActivity" class="category-tabs">
+    <div class="category-tabs">
       <button
         v-for="cat in courseCategories"
         :key="cat.id"
@@ -54,7 +54,7 @@
     </div>
 
     <!-- Courses -->
-    <div v-if="!player.activeActivity" class="course-list">
+    <div class="course-list">
       <div
         v-for="course in filteredCourses"
         :key="course.id"
@@ -79,6 +79,12 @@
           <span v-if="course.levelRequired > 1" class="badge badge-info">Επ. {{ course.levelRequired }}</span>
           <span v-if="course.prerequisite && !educationStore.isCompleted(course.prerequisite)" class="badge badge-danger">
             Προαπαιτούμενο
+          </span>
+          <span v-else-if="player.level < course.levelRequired" class="badge badge-danger">
+            Επ. {{ course.levelRequired }}
+          </span>
+          <span v-else-if="player.cash < course.cost" class="badge badge-danger">
+            Ανεπαρκή χρήματα
           </span>
         </div>
       </div>
