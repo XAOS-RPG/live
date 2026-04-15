@@ -8,6 +8,18 @@
       </div>
     </div>
 
+    <!-- Hospital / Jail block -->
+    <div v-if="player.status === 'hospital'" class="card" style="border-left: 3px solid var(--color-danger); text-align:center">
+      <p>🏥 Είσαι στο <strong>Νοσοκομείο</strong> — δεν μπορείς να κάνεις εγκλήματα.</p>
+      <p class="text-mono text-accent">{{ formatTime(player.statusTimeRemaining) }}</p>
+      <router-link to="/hospital" class="btn btn-sm btn-outline mt-sm">Πήγαινε στο Νοσοκομείο</router-link>
+    </div>
+    <div v-else-if="player.status === 'jail'" class="card" style="border-left: 3px solid var(--color-warning); text-align:center">
+      <p>🔒 Είσαι στη <strong>Φυλακή</strong> — δεν μπορείς να κάνεις εγκλήματα.</p>
+      <p class="text-mono text-accent">{{ formatTime(player.statusTimeRemaining) }}</p>
+      <router-link to="/jail" class="btn btn-sm btn-outline mt-sm">Πήγαινε στη Φυλακή</router-link>
+    </div>
+
     <!-- Active crime in progress -->
     <div v-if="player.activeActivity && player.activeActivity.type === 'crime'" class="card activity-card">
       <div class="activity-header">

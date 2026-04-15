@@ -198,7 +198,7 @@ async function loadJailed() {
   try {
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, name, level, status, status_timer_end')
+      .select('id, username, name, level, status, save_data')
       .eq('status', 'jail')
       .neq('id', auth.user.id)
       .limit(10)
@@ -206,7 +206,9 @@ async function loadJailed() {
       id: p.id,
       nickname: p.username || p.name || 'Άγνωστος',
       level: p.level ?? 1,
-      remaining: p.status_timer_end ? Math.max(0, new Date(p.status_timer_end).getTime() - Date.now()) : 0,
+      remaining: p.save_data?.stores?.player?.statusTimerEnd
+        ? Math.max(0, p.save_data.stores.player.statusTimerEnd - Date.now())
+        : 0,
     }))
   } catch (e) {
     console.error(e)
