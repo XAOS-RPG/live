@@ -44,6 +44,12 @@
       <p class="text-mono text-accent">{{ formatTime(player.activityTimeRemaining) }}</p>
     </div>
 
+    <!-- Pending result from non-crime activity — clear it so crimes are accessible -->
+    <div v-else-if="player.pendingResult && player.pendingResult.type !== 'crime'" class="card busy-card">
+      <p class="text-muted">Εκκρεμεί αποτέλεσμα: <strong>{{ player.pendingResult.label }}</strong></p>
+      <button class="btn btn-sm btn-outline mt-sm" @click="player.clearPendingResult()">Παράβλεψε</button>
+    </div>
+
     <!-- Pending result — player must roll the dice -->
     <div v-else-if="player.pendingResult && player.pendingResult.type === 'crime'" class="card roll-prompt-card">
       <div class="roll-prompt-header">
@@ -59,7 +65,7 @@
     </div>
 
     <!-- Available crimes -->
-    <div v-if="!player.activeActivity && !player.pendingResult" class="crime-list">
+    <div v-if="!player.activeActivity && !(player.pendingResult && player.pendingResult.type === 'crime')" class="crime-list">
       <div
         v-for="crime in crimeStore.availableCrimes"
         :key="crime.id"
@@ -116,7 +122,7 @@
     </div>
 
     <!-- Locked crimes -->
-    <div v-if="crimeStore.lockedCrimes.length > 0 && !player.activeActivity && !player.pendingResult" class="locked-section">
+    <div v-if="crimeStore.lockedCrimes.length > 0 && !player.activeActivity && !(player.pendingResult && player.pendingResult.type === 'crime')" class="locked-section">
       <h3 class="text-muted mt-lg mb-sm">🔒 Κλειδωμένα</h3>
       <div class="crime-list">
         <div
