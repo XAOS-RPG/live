@@ -117,22 +117,26 @@
       </div>
     </div>
 
-    <!-- Logout -->
+    <!-- Λογαριασμός -->
     <div class="card">
       <h3 class="card-title">Λογαριασμός</h3>
       <div class="settings-actions">
-        <button class="btn btn-danger btn-block" @click="handleLogout">
-          🚪 Αποσύνδεση
+        <button class="btn btn-danger btn-block" @click="handleResetProgress" :disabled="resetting">
+          🔄 {{ resetting ? 'Επαναφορά...' : 'Επαναφορά Προόδου' }}
         </button>
         <p class="text-muted text-center" style="font-size: var(--font-size-xs)">
-          Θα αποσυνδεθείς από το παιχνίδι.
+          Διαγράφει τα πάντα και ξεκινάς από Level 1. Δεν αναιρείται.
         </p>
+        <button class="btn btn-secondary btn-block mt-sm" @click="handleLogout">
+          🚪 Αποσύνδεση
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { usePropertyStore } from '../stores/propertyStore'
 import { useCombatStore } from '../stores/combatStore'
@@ -144,6 +148,8 @@ const propertyStore = usePropertyStore()
 const combatStore = useCombatStore()
 const authStore = useAuthStore()
 const router = useRouter()
+
+const resetting = ref(false)
 
 const battleStats = [
   { key: 'strength', label: 'Δύναμη', icon: '💪' },
@@ -170,6 +176,21 @@ async function handleLogout() {
   if (confirm('Θέλεις να αποσυνδεθείς;')) {
     await authStore.logout()
     router.push('/auth')
+  }
+}
+
+async function handleResetProgress() {
+  const first = confirm('Είσαι σίγουρος ότι θέλεις να διαγράψεις ΟΛΗ σου την πρόοδο;\n\nLevel, χρήματα, ακίνητα, αντικείμενα — τα πάντα θα χαθούν.')
+  if (!first) return
+  const second = confirm('Τελευταία ευκαιρία! Αυτή η ενέργεια ΔΕΝ αναιρείται.\n\nΣυνέχεια;')
+  if (!second) return
+
+  resetting.value = true
+  const result = await authStore.resetProgress()
+  resetting.value = false
+
+  if (result.success) {
+    router.push('/')
   }
 }
 </script>

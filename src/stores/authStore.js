@@ -153,6 +153,61 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    async resetProgress() {
+      if (!this.user) return { success: false }
+      try {
+        const { SAVE_KEY, RESOURCE_DEFAULTS: RD } = await import('../data/constants')
+
+        // 1. Clear localStorage
+        try { localStorage.removeItem(SAVE_KEY) } catch {}
+
+        // 2. Reset Supabase profile to defaults (keep name/email, wipe save_data & stats)
+        const defaultStats = { strength: 5, speed: 5, dexterity: 5, defense: 5 }
+        const defaultResources = {
+          hp: { current: RD.hp.max, max: RD.hp.max },
+          energy: { current: RD.energy.max, max: RD.energy.max },
+          nerve: { current: RD.nerve.max, max: RD.nerve.max },
+          happiness: { current: 100, max: RD.happiness.max }
+        }
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            level: 1,
+            xp: 0,
+            cash: 500,
+            bank: 0,
+            vault: 0,
+            filotimo: 50,
+            meson: 0,
+            crime_xp: 0,
+            status: 'free',
+            status_timer_end: null,
+            stats: defaultStats,
+            resources: defaultResources,
+            save_data: null,
+          })
+          .eq('id', this.user.id)
+        if (error) throw error
+
+        // 3. Reset all in-memory stores and reinitialize
+        const gameStore = useGameStore()
+        gameStore.stopGameLoop()
+        gameStore.initialized = false
+        const playerStore = usePlayerStore()
+        playerStore.$reset()
+
+        // 4. Reload profile (will hit the "no save anywhere" path and use defaults)
+        await this.loadPlayerProfile()
+
+        this.showNotification('Η πρόοδος διαγράφηκε. Ξεκινάς από την αρχή!', 'warning')
+        return { success: true }
+      } catch (err) {
+        console.error('resetProgress failed:', err)
+        this.showNotification('Σφάλμα κατά την επαναφορά', 'danger')
+        return { success: false }
+      }
+    },
+
     async createUserProfile(userId, username, email) {
       const defaultStats = { strength: 5, speed: 5, dexterity: 5, defense: 5 }
       const defaultResources = {
