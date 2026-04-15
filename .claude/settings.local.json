@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx vite:*)",
-      "Bash(node --input-type=module --eval ':*)"
+      "Bash(node --input-type=module --eval ':*)",
+      "Bash(npm run *)"
     ]
   }
 }

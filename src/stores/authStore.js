@@ -236,8 +236,14 @@ export const useAuthStore = defineStore('auth', {
           localStorage.setItem(SAVE_KEY, JSON.stringify(cloudSave))
           gameStore.loadGame()
           gameStore.setInitialized(true) // skipSave=true, don't overwrite cloud
-        } else if (localTs > 0) {
-          // Local is newer — load from localStorage, cloud will be updated on next save
+        } else if (!cloudSave && localTs > 0) {
+          // Cloud has no save but local has data — stale data from another account
+          console.log('Clearing stale localStorage (no cloud save for this account)')
+          localStorage.removeItem(SAVE_KEY)
+          await playerStore.hydrateFromProfile(data)
+          if (!gameStore.initialized) gameStore.setInitialized()
+        } else if (localTs > cloudTs && localTs > 0) {
+          // Local is genuinely newer (same account, played offline)
           console.log('Loading from localStorage (newer)')
           if (!gameStore.initialized) {
             gameStore.loadGame()
@@ -338,7 +344,18 @@ export const useAuthStore = defineStore('auth', {
     clearAuthState() {
       this.user = null
       this.session = null
-      // Optionally clear any local game state
+
+      // Clear localStorage save to prevent stale data leaking to another account
+      try {
+        localStorage.removeItem('chaos_save_v1')
+      } catch {}
+
+      // Reset game initialization flag so next login starts fresh
+      const gameStore = useGameStore()
+      gameStore.stopGameLoop()
+      gameStore.initialized = false
+
+      // Reset player store in memory
       const playerStore = usePlayerStore()
       playerStore.$reset()
     },
