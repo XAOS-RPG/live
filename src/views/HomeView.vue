@@ -18,6 +18,24 @@
       </div>
     </div>
 
+    <!-- Active activity in progress -->
+    <router-link
+      v-if="player.activeActivity"
+      :to="activityRoute"
+      class="card active-activity-banner"
+      style="text-decoration:none; color:inherit;"
+    >
+      <span class="act-icon">{{ player.activeActivity.icon }}</span>
+      <div class="act-copy">
+        <strong class="act-title">{{ player.activeActivity.label }}</strong>
+        <p class="act-detail text-muted">Σε εξέλιξη — {{ formatTime(player.activityTimeRemaining) }} απομένουν</p>
+        <div class="act-bar-track">
+          <div class="act-bar-fill" :style="{ width: (player.activityProgress * 100) + '%' }" />
+        </div>
+      </div>
+      <span class="act-arrow text-muted">›</span>
+    </router-link>
+
     <!-- Weekly Event Banner -->
     <router-link v-if="weeklyEvent.activeEvent" to="/events-hub" class="card weekly-event-home" :style="{ borderLeftColor: weeklyEvent.activeEvent.color }" style="text-decoration:none; color:inherit;">
       <span class="weekly-event-home-icon">{{ weeklyEvent.activeEvent.icon }}</span>
@@ -125,6 +143,15 @@ import { useWeeklyEventStore } from '../stores/weeklyEventStore'
 
 const player = usePlayerStore()
 const weeklyEvent = useWeeklyEventStore()
+
+const activityRoute = computed(() => {
+  const type = player.activeActivity?.type
+  if (type === 'crime') return '/crimes'
+  if (type === 'gym') return '/gym'
+  if (type === 'education') return '/education'
+  if (type === 'travel') return '/travel'
+  return '/'
+})
 
 /** Όταν υπάρχει αποτέλεσμα που χρειάζεται ζάρι (όχι education — κλείνει αυτόματα). */
 const pendingDiceBanner = computed(() => {
@@ -397,4 +424,31 @@ function formatTimeAgo(timestamp) {
   font-size: 1.5rem;
   flex-shrink: 0;
 }
+
+.active-activity-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  border-left: 4px solid var(--color-accent);
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+.active-activity-banner:hover { background: var(--bg-surface-raised); }
+.act-icon { font-size: 1.8rem; flex-shrink: 0; }
+.act-copy { flex: 1; min-width: 0; }
+.act-title { display: block; font-size: var(--font-size-sm); color: var(--color-accent); margin-bottom: 2px; }
+.act-detail { margin: 0 0 6px; font-size: var(--font-size-xs); }
+.act-bar-track {
+  height: 4px;
+  background: var(--bg-surface-raised);
+  border-radius: var(--border-radius-full);
+  overflow: hidden;
+}
+.act-bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--border-radius-full);
+  transition: width 1s linear;
+}
+.act-arrow { font-size: 1.4rem; flex-shrink: 0; }
 </style>
