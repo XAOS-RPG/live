@@ -274,16 +274,29 @@ export const useAuthStore = defineStore('auth', {
 
         const { SAVE_KEY, SAVE_VERSION } = await import('../data/constants')
         let localTs = 0
+        let localBelongsToThisUser = false
         try {
           const raw = localStorage.getItem(SAVE_KEY)
           if (raw) {
             const parsed = JSON.parse(raw)
-            if (parsed?.version === SAVE_VERSION) localTs = parsed.timestamp || 0
+            if (parsed?.version === SAVE_VERSION) {
+              localTs = parsed.timestamp || 0
+              // A save belongs to this user if it has a matching userId,
+              // OR if it has no userId (legacy save before we added the field — assume same device/user)
+              localBelongsToThisUser = !parsed.userId || parsed.userId === this.user.id
+            }
           }
         } catch {}
 
+        // If local save belongs to a different user, discard it immediately
+        if (localTs > 0 && !localBelongsToThisUser) {
+          console.log('Discarding stale localStorage — belongs to a different user')
+          try { localStorage.removeItem(SAVE_KEY) } catch {}
+          localTs = 0
+        }
+
         console.log('Player profile loaded:', data)
-        console.log(`Cloud ts: ${cloudTs}, Local ts: ${localTs}`)
+        console.log(`Cloud ts: ${cloudTs}, Local ts: ${localTs}, localBelongsToThisUser: ${localBelongsToThisUser}`)
 
         if (cloudSave && cloudTs >= localTs) {
           // Cloud is newer (or equal) — load full save from cloud
@@ -291,12 +304,6 @@ export const useAuthStore = defineStore('auth', {
           localStorage.setItem(SAVE_KEY, JSON.stringify(cloudSave))
           gameStore.loadGame()
           gameStore.setInitialized(true) // skipSave=true, don't overwrite cloud
-        } else if (!cloudSave && localTs > 0) {
-          // Cloud has no save but local has data — stale data from another account
-          console.log('Clearing stale localStorage (no cloud save for this account)')
-          localStorage.removeItem(SAVE_KEY)
-          await playerStore.hydrateFromProfile(data)
-          if (!gameStore.initialized) gameStore.setInitialized()
         } else if (localTs > cloudTs && localTs > 0) {
           // Local is genuinely newer (same account, played offline)
           console.log('Loading from localStorage (newer)')

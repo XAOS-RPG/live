@@ -94,6 +94,7 @@ export const useGameStore = defineStore('game', {
           version: SAVE_VERSION,
           gameVersion: this.gameVersion,
           timestamp: Date.now(),
+          userId: authStore.user?.id || null,
           stores: {
             player: playerStore.getSerializable(),
             crime: crimeStore.getSerializable(),
