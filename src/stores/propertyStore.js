@@ -3,6 +3,7 @@ import { getPropertyById } from '../data/properties'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useInventoryStore } from './inventoryStore'
+import { useTravelStore } from './travelStore'
 
 const MOVING_SERVICE_FEE = 500
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -110,8 +111,15 @@ export const usePropertyStore = defineStore('property', {
         return false
       }
       this.activeInstanceId = instanceId
+
+      // Moving to a property in another city also moves the player there
+      if (instance.locationId) {
+        const travelStore = useTravelStore()
+        travelStore.currentLocation = instance.locationId
+      }
+
       gameStore.addNotification('Μετακόμισες στο νέο ακίνητο.', 'success')
-      gameStore.saveGame()
+      gameStore.saveGame({ awaitCloud: true })
       return true
     },
 
@@ -167,7 +175,7 @@ export const usePropertyStore = defineStore('property', {
 
       gameStore.addNotification(`Αγόρασες: ${property.name}!`, 'success')
       player.logActivity(`🏠 Αγορά ${property.name}`, 'cash')
-      gameStore.saveGame()
+      gameStore.saveGame({ awaitCloud: true })
       return true
     },
 

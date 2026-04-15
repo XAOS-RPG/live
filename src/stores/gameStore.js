@@ -76,7 +76,12 @@ export const useGameStore = defineStore('game', {
       if (!skipSave) this.saveGame()
     },
 
-    saveGame() {
+    /**
+     * @param {{ awaitCloud?: boolean }} options
+     *   awaitCloud: if true, waits for cloud save to finish before returning.
+     *              Use for critical state changes (travel, purchases).
+     */
+    async saveGame({ awaitCloud = false } = {}) {
       try {
         const playerStore = usePlayerStore()
         const authStore = useAuthStore()
@@ -130,14 +135,19 @@ export const useGameStore = defineStore('game', {
 
         // If user is authenticated, also save to Supabase cloud
         if (authStore.user) {
-          // Fire and forget - don't block the UI
-          playerStore.saveProfileToCloud(saveData).then(success => {
-            if (success) {
-              console.log('Cloud save successful')
-            } else {
-              console.warn('Cloud save failed (check network)')
+          const cloudSave = playerStore.saveProfileToCloud(saveData)
+          if (awaitCloud) {
+            // Wait for cloud save on critical operations (travel, property, etc.)
+            const success = await cloudSave
+            if (!success) {
+              console.warn('Critical cloud save failed — will retry on next auto-save')
             }
-          })
+          } else {
+            // Fire and forget for auto-saves
+            cloudSave.then(success => {
+              if (!success) console.warn('Cloud save failed (check network)')
+            })
+          }
         }
 
         return true

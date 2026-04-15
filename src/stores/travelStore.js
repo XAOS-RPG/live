@@ -136,7 +136,7 @@ export const useTravelStore = defineStore('travel', {
       player.logActivity(`✈️ Έφτασες: ${name}`, 'info')
       gameStore.addNotification(`Καλώς ήρθες στ${getArticle(name)} ${name}!`, 'success')
       useMissionStore().updateProgress('travel', 1)
-      gameStore.saveGame()
+      gameStore.saveGame({ awaitCloud: true })
     },
 
     handleTravelFailure(mode) {

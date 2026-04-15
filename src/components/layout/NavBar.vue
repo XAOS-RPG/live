@@ -63,22 +63,6 @@
             </router-link>
           </div>
         </template>
-        <div class="more-category-label">Άλλες Επιλογές</div>
-        <div class="more-category-grid">
-          <router-link
-            v-for="item in standaloneItems"
-            :key="item.to"
-            :to="item.to"
-            class="more-item"
-            @click="showMore = false"
-          >
-            <span class="more-item-icon-wrap">
-              <span class="more-item-icon">{{ item.icon }}</span>
-              <span v-if="item.badgeKey && badges[item.badgeKey]?.value" class="nav-badge-dot more-badge-dot" aria-hidden="true" />
-            </span>
-            <span class="more-item-label">{{ item.label }}</span>
-          </router-link>
-        </div>
       </div>
     </div>
   </Teleport>
@@ -107,67 +91,77 @@ const categories = [
   {
     label: 'Οικονομία & Business',
     items: [
-      { to: '/stocks',   icon: '📈',  label: 'Χρηματιστήριο', badgeKey: null },
-      { to: '/company',  icon: '🏢',  label: 'Εταιρεία',      badgeKey: 'company' },
-      { to: '/property', icon: '🏘️',  label: 'Ακίνητα',       badgeKey: null },
-      { to: '/job',      icon: '💼',  label: 'Δουλειά',       badgeKey: 'job' },
-      { to: '/travel',   icon: '✈️',  label: 'Ταξίδι',        badgeKey: null },
-      { to: '/casino',   icon: '🎲',  label: 'Τυχερά',        badgeKey: null },
-      { to: '/smuggling', icon: '🚬', label: 'Λαθρεμπόριο',  badgeKey: null },
-      { to: '/loans',     icon: '🦈', label: 'Τοκογλύφος',   badgeKey: null },
-      { to: '/kontres',  icon: '🏎️',  label: 'Κόντρες',       badgeKey: null },
+      { to: '/stocks',   icon: '📈', label: 'Χρηματιστήριο', badgeKey: null },
+      { to: '/company',  icon: '🏢', label: 'Εταιρεία',      badgeKey: 'company' },
+      { to: '/property', icon: '🏘️', label: 'Ακίνητα',       badgeKey: null },
+      { to: '/job',      icon: '💼', label: 'Δουλειά',       badgeKey: 'job' },
+      { to: '/travel',   icon: '✈️', label: 'Ταξίδι',        badgeKey: null },
     ],
   },
   {
-    label: 'Αγορά & Gear',
+    label: 'Εγκληματικός Υπόκοσμος',
     items: [
-      { to: '/shop',         icon: '🛒',  label: 'Κατάστημα',       badgeKey: null },
-      { to: '/bazaar',       icon: '🏪',  label: 'Παζάρι',           badgeKey: 'bazaar' },
-      { to: '/auction',      icon: '🏛️',  label: 'Δημοπρασία',       badgeKey: null },
-      { to: '/black-market', icon: '🕵️',  label: 'Μαυραγορίτης',    badgeKey: null },
-      { to: '/inventory',    icon: '🎒',  label: 'Τσέπη',            badgeKey: null },
-      { to: '/bounties',     icon: '🎯',  label: 'Συμβόλαια',        badgeKey: null },
-      { to: '/pets',         icon: '🐾',  label: 'Κατοικίδια',       badgeKey: null },
-      { to: '/workshop',     icon: '🔨',  label: 'Εργαστήριο',       badgeKey: null },
-      { to: '/lucky-kiosk',  icon: '🎰',  label: 'Τυχερό Περίπτερο', badgeKey: null },
+      { to: '/black-market', icon: '🕵️', label: 'Μαυραγορίτης', badgeKey: null },
+      { to: '/smuggling',    icon: '🚬', label: 'Λαθρεμπόριο',  badgeKey: null },
+      { to: '/loans',        icon: '🦈', label: 'Τοκογλύφος',   badgeKey: null },
+      { to: '/bounties',     icon: '🎯', label: 'Συμβόλαια',    badgeKey: null },
+      { to: '/world-boss',   icon: '🏦', label: 'Ριφιφί',       badgeKey: null },
+    ],
+  },
+  {
+    label: 'Αγορά & Εξοπλισμός',
+    items: [
+      { to: '/shop',        icon: '🛒', label: 'Κατάστημα',          badgeKey: null },
+      { to: '/bazaar',      icon: '🏪', label: 'Παζάρι',             badgeKey: 'bazaar' },
+      { to: '/auction',     icon: '🏛️', label: 'Δημοπρασία',         badgeKey: null },
+      { to: '/inventory',   icon: '🎒', label: 'Τσέπη',              badgeKey: null },
+      { to: '/workshop',    icon: '🔨', label: 'Κατασκευές & Πατέντες', badgeKey: null },
+      { to: '/pets',        icon: '🐾', label: 'Κατοικίδια',         badgeKey: null },
+    ],
+  },
+  {
+    label: 'Τύχη & Διασκέδαση',
+    items: [
+      { to: '/casino',      icon: '🎲', label: 'Τυχερά',           badgeKey: null },
+      { to: '/lucky-kiosk', icon: '🎰', label: 'Τυχερό Περίπτερο', badgeKey: null },
+      { to: '/kontres',     icon: '🏎️', label: 'Κόντρες',          badgeKey: null },
     ],
   },
   {
     label: 'Κοινωνικά & Φήμη',
     items: [
-      { to: '/faction',          icon: '🏴',  label: 'Συμμορία',        badgeKey: null },
-      { to: '/faction-fortress', icon: '🏰',  label: 'Οχυρό',           badgeKey: null },
-      { to: '/world-boss',       icon: '🏦',  label: 'Ριφιφί',          badgeKey: null },
-      { to: '/volunteering',     icon: '🤝',  label: 'Εθελοντισμός',    badgeKey: null },
-      { to: '/jail',             icon: '🔒',  label: 'Φυλακή',          badgeKey: null },
-      { to: '/hospital',         icon: '🏥',  label: 'Νοσοκομείο',     badgeKey: null },
-      { to: '/friends',          icon: '👥',  label: 'Φίλοι',           badgeKey: 'friends' },
-      { to: '/leaderboard',  icon: '🏅',  label: 'Κατάταξη',    badgeKey: null },
-      { to: '/achievements', icon: '🏆',  label: 'Επιτεύγματα', badgeKey: 'achievements' },
-      { to: '/profile',      icon: '👤',  label: 'Προφίλ',      badgeKey: null },
+      { to: '/faction',          icon: '🏴', label: 'Συμμορία',    badgeKey: null },
+      { to: '/faction-fortress', icon: '🏰', label: 'Οχυρό',       badgeKey: null },
+      { to: '/friends',          icon: '👥', label: 'Φίλοι',       badgeKey: 'friends' },
+      { to: '/leaderboard',      icon: '🏅', label: 'Κατάταξη',    badgeKey: null },
+      { to: '/achievements',     icon: '🏆', label: 'Επιτεύγματα', badgeKey: 'achievements' },
+      { to: '/profile',          icon: '👤', label: 'Προφίλ',      badgeKey: null },
+      { to: '/messages',         icon: '✉️', label: 'Μηνύματα',    badgeKey: null },
+      { to: '/forums',           icon: '💬', label: 'Φόρουμ',      badgeKey: null },
     ],
   },
   {
     label: 'Ανάπτυξη',
     items: [
-      { to: '/education', icon: '🎓',  label: 'Εκπαίδευση', badgeKey: null },
-      { to: '/masteries', icon: '🌳',  label: 'Ικανότητες',  badgeKey: 'masteries' },
-      { to: '/daily',     icon: '📅',  label: 'Bonus',       badgeKey: 'daily' },
-      { to: '/missions',  icon: '📋',  label: 'Αποστολές',   badgeKey: 'missions' },
-      { to: '/elite',    icon: '👑',  label: 'Elite',       badgeKey: null },
+      { to: '/education', icon: '🎓', label: 'Εκπαίδευση',    badgeKey: null },
+      { to: '/masteries', icon: '🌳', label: 'Ικανότητες',    badgeKey: 'masteries' },
+      { to: '/daily',     icon: '📅', label: 'Bonus',         badgeKey: 'daily' },
+      { to: '/missions',  icon: '📋', label: 'Αποστολές',     badgeKey: 'missions' },
+      { to: '/elite',     icon: '👑', label: 'Elite Ascension', badgeKey: null },
+    ],
+  },
+  {
+    label: 'Υπηρεσίες Πόλης',
+    items: [
+      { to: '/jail',         icon: '🔒', label: 'Φυλακή',       badgeKey: null },
+      { to: '/hospital',     icon: '🏥', label: 'Νοσοκομείο',  badgeKey: null },
+      { to: '/volunteering', icon: '🤝', label: 'Εθελοντισμός', badgeKey: null },
+      { to: '/settings',     icon: '⚙️', label: 'Ρυθμίσεις',   badgeKey: null },
     ],
   },
 ]
 
-const standaloneItems = [
-  { to: '/messages', icon: '✉️',  label: 'Μηνύματα',  badgeKey: null },
-  { to: '/forums',   icon: '💬',  label: 'Φόρουμ',    badgeKey: null },
-  { to: '/settings', icon: '⚙️',  label: 'Ρυθμίσεις', badgeKey: null },
-]
-
-const allExtraItems = computed(() =>
-  [...categories.flatMap(c => c.items), ...standaloneItems]
-)
+const allExtraItems = computed(() => categories.flatMap(c => c.items))
 
 // Drives the dot on the "···" button itself
 const anyExtraBadge = computed(() =>

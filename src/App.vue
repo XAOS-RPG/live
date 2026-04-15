@@ -32,7 +32,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from './stores/gameStore'
 import { usePlayerStore } from './stores/playerStore'
@@ -112,6 +112,17 @@ watch(() => gameStore.initialized, (val) => {
     router.push('/create')
   }
 }, { immediate: true })
+
+// ── Cross-device sync: re-check cloud when tab/app regains focus ─────────
+function onVisibilityChange() {
+  if (!document.hidden && authStore.isAuthenticated && gameStore.initialized) {
+    authStore.syncFromCloud()
+  }
+}
+document.addEventListener('visibilitychange', onVisibilityChange)
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 </script>
 
 <style scoped>

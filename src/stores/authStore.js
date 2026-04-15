@@ -282,6 +282,49 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    /**
+     * Re-sync from cloud when app regains focus (e.g. user switches from mobile to PC).
+     * Only loads cloud data if it's strictly newer than local — prevents overwriting
+     * in-progress play on this device.
+     */
+    async syncFromCloud() {
+      if (!this.user) return
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('save_data')
+          .eq('id', this.user.id)
+          .single()
+
+        if (error || !data?.save_data) return
+
+        const cloudSave = data.save_data
+        const cloudTs = cloudSave?.timestamp || 0
+
+        const { SAVE_KEY, SAVE_VERSION } = await import('../data/constants')
+        let localTs = 0
+        try {
+          const raw = localStorage.getItem(SAVE_KEY)
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            if (parsed?.version === SAVE_VERSION) localTs = parsed.timestamp || 0
+          }
+        } catch {}
+
+        // Only load if cloud is STRICTLY newer (not equal — equal means this device saved last)
+        if (cloudTs > localTs) {
+          console.log(`Cloud sync: cloud is newer (cloud=${cloudTs}, local=${localTs}), reloading`)
+          const gameStore = useGameStore()
+          localStorage.setItem(SAVE_KEY, JSON.stringify(cloudSave))
+          gameStore.loadGame()
+          this.showNotification('Συγχρονισμός από cloud', 'info')
+        }
+      } catch (err) {
+        console.warn('syncFromCloud failed:', err)
+      }
+    },
+
     handleNewUserSession() {
       console.log('New user session:', this.user)
       // Only load profile if game isn't already initialized (avoids double-load

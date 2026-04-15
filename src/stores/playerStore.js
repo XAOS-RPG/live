@@ -531,6 +531,21 @@ export const usePlayerStore = defineStore('player', {
 
         // Include full save blob if provided (for cross-device sync)
         if (saveData) {
+          // Guard: don't overwrite a newer cloud save from another device
+          try {
+            const { data: existing } = await supabase
+              .from('profiles')
+              .select('save_data')
+              .eq('id', userId)
+              .single()
+            const cloudTs = existing?.save_data?.timestamp || 0
+            const localTs = saveData.timestamp || 0
+            if (cloudTs > localTs) {
+              console.warn(`Cloud save is newer (cloud=${cloudTs}, local=${localTs}) — skipping overwrite`)
+              return false
+            }
+          } catch {}
+
           profileData.save_data = saveData
         }
 
