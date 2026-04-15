@@ -523,7 +523,7 @@ export const usePlayerStore = defineStore('player', {
           meson: this.meson,
           crime_xp: this.crimeXP,
           status: this.status,
-          status_timer_end: this.statusTimerEnd,
+          status_timer_end: this.statusTimerEnd ? new Date(this.statusTimerEnd).toISOString() : null,
           stats: this.stats,
           resources: this.resources,
           updated_at: new Date().toISOString()
@@ -578,7 +578,7 @@ export const usePlayerStore = defineStore('player', {
       this.meson = profile.meson || 0
       this.crimeXP = profile.crime_xp || 0
       this.status = profile.status || 'free'
-      this.statusTimerEnd = profile.status_timer_end
+      this.statusTimerEnd = profile.status_timer_end ? new Date(profile.status_timer_end).getTime() : null
       if (profile.stats) {
         Object.assign(this.stats, profile.stats)
       }
