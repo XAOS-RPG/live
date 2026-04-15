@@ -21,9 +21,10 @@ export const useFriendStore = defineStore('friends', {
       if (!me) return new Set()
       const ids = new Set()
       for (const r of [...state.friends, ...state.incoming, ...state.outgoing]) {
-        if (r.user_id !== me) ids.add(r.user_id)
-        if (r.friend_id !== me) ids.add(r.friend_id)
+        ids.add(r.user_id)
+        ids.add(r.friend_id)
       }
+      ids.delete(me)
       return ids
     },
   },

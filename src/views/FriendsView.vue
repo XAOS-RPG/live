@@ -60,7 +60,7 @@
           <div class="friend-info">
             <span class="friend-icon">👤</span>
             <div class="friend-meta">
-              <strong>{{ row.requester_name || row.requester_username }}</strong>
+              <strong>{{ row.requester_username }}</strong>
               <span class="text-muted sub">Επ. {{ row.requester_level }} · θέλει να γίνει φίλος</span>
             </div>
           </div>
@@ -88,7 +88,7 @@
           <div class="friend-info">
             <span class="friend-icon">👤</span>
             <div class="friend-meta">
-              <strong>{{ row.recipient_name || row.recipient_username }}</strong>
+              <strong>{{ row.recipient_username }}</strong>
               <span class="text-muted sub">Επ. {{ row.recipient_level }} · αναμένει απάντηση</span>
             </div>
           </div>
@@ -127,11 +127,10 @@ function friendId(row) {
   return row.user_id === me ? row.friend_id : row.user_id
 }
 
-// Helper: given a row, return the OTHER person's display name
 function friendName(row) {
   const me = auth.user?.id
-  if (row.user_id === me) return row.recipient_name || row.recipient_username
-  return row.requester_name || row.requester_username
+  if (row.user_id === me) return row.recipient_username
+  return row.requester_username
 }
 function friendLevel(row) {
   const me = auth.user?.id

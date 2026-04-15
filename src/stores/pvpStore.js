@@ -46,21 +46,23 @@ export const usePvpStore = defineStore('pvp', {
 
       this.loading = true
       try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, username, save_data')
+          .neq('id', auth.user.id)
+          .not('save_data', 'is', null)
+          .limit(50)
+
+        if (error) throw error
+
         const levelMin = Math.max(1, player.level - 8)
         const levelMax = player.level + 8
 
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, username, name, level, stats, resources, status, filotimo, meson')
-          .neq('id', auth.user.id)
-          .gte('level', levelMin)
-          .lte('level', levelMax)
-          // Don't filter by status here — show all, mark unavailable in UI
-          .order('level', { ascending: true })
-          .limit(20)
+        this.targets = (data || [])
+          .map(p => this._mapProfile(p))
+          .filter(p => p.level >= levelMin && p.level <= levelMax)
+          .slice(0, 20)
 
-        if (error) throw error
-        this.targets = (data || []).map(p => this._mapProfile(p))
         this.lastFetch = Date.now()
       } catch (e) {
         console.error('PVP fetch error:', e)
@@ -71,17 +73,18 @@ export const usePvpStore = defineStore('pvp', {
 
     /** Map a Supabase profile row to a combat-ready target object */
     _mapProfile(profile) {
-      const hp = profile.resources?.hp?.current ?? 100
-      const hpMax = profile.resources?.hp?.max ?? 100
-      const stats = profile.stats ?? { strength: 5, speed: 5, dexterity: 5, defense: 5 }
-      const status = profile.status ?? 'free'
-      // Check if status timer has already expired (player may be free again)
-      const timerEnd = profile.resources?.statusTimerEnd ?? null
+      const sd = profile.save_data ?? {}
+      const level = sd.level ?? 1
+      const hp = sd.resources?.hp?.current ?? 100
+      const hpMax = sd.resources?.hp?.max ?? 100
+      const stats = sd.stats ?? { strength: 5, speed: 5, dexterity: 5, defense: 5 }
+      const status = sd.status ?? 'free'
+      const timerEnd = sd.statusTimerEnd ?? null
       const isActuallyFree = status === 'free' || (timerEnd && Date.now() > new Date(timerEnd).getTime())
       return {
         id: profile.id,
-        nickname: profile.username || profile.name || 'Άγνωστος',
-        level: profile.level ?? 1,
+        nickname: profile.username || 'Άγνωστος',
+        level,
         stats,
         hp: Math.max(1, hp),
         hpMax,
@@ -91,7 +94,7 @@ export const usePvpStore = defineStore('pvp', {
         rewards: {
           cashMin: 0,
           cashMax: 0,
-          xp: Math.floor(10 * (profile.level ?? 1) * 0.8),
+          xp: Math.floor(10 * level * 0.8),
         },
         isReal: true,
         icon: '👤',
@@ -112,17 +115,22 @@ export const usePvpStore = defineStore('pvp', {
       // Re-fetch target's current cash (to calculate steal amount)
       const { data: fresh } = await supabase
         .from('profiles')
-        .select('cash, status, stats, resources')
+        .select('save_data')
         .eq('id', targetId)
         .single()
 
-      if (!fresh || fresh.status !== 'free') {
+      const freshSd = fresh?.save_data ?? {}
+      const freshStatus = freshSd.status ?? 'free'
+      const freshTimerEnd = freshSd.statusTimerEnd ?? null
+      const isFree = freshStatus === 'free' || (freshTimerEnd && Date.now() > new Date(freshTimerEnd).getTime())
+
+      if (!fresh || !isFree) {
         return { aborted: true, reason: 'Ο παίκτης δεν είναι διαθέσιμος αυτή τη στιγμή.' }
       }
 
-      const defStats = fresh.stats ?? target.stats
-      const defHP = fresh.resources?.hp?.current ?? target.hp
-      const defCash = fresh.cash ?? 0
+      const defStats = freshSd.stats ?? target.stats
+      const defHP = freshSd.resources?.hp?.current ?? target.hp
+      const defCash = freshSd.cash ?? 0
 
       const result = simulateFight(
         player.stats,
