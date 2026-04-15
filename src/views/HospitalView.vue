@@ -142,10 +142,9 @@ function useMedical(itemId) { inventory.useItem(itemId) }
 
 // ── Blood Donation ────────────────────────────────────────────────────────────
 const DONATION_COOLDOWN_MS = 24 * 60 * 60 * 1000
-const lastDonation = ref(Number(localStorage.getItem('bloodDonationLast')) || 0)
 
 const donationCooldownRemaining = computed(() =>
-  Math.max(0, DONATION_COOLDOWN_MS - (Date.now() - lastDonation.value))
+  Math.max(0, DONATION_COOLDOWN_MS - (Date.now() - (player.bloodDonationLast || 0)))
 )
 
 const canDonate = computed(() =>
@@ -164,8 +163,7 @@ function doBloodDonation() {
   player.modifyResource('hp', -50)
   player.addFilotimoRaw(filotimoGain.value)
   player.grantMedicalBadge()
-  lastDonation.value = Date.now()
-  localStorage.setItem('bloodDonationLast', String(lastDonation.value))
+  player.bloodDonationLast = Date.now()
   gameStore.addNotification(`🩸 Αιμοδοσία: +${filotimoGain.value} Φιλότιμο, Medical Badge 24ω!`, 'success')
   player.logActivity(`🩸 Αιμοδοσία: +${filotimoGain.value} Φιλότιμο`, 'info')
   gameStore.saveGame()

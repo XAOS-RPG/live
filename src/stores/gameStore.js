@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { SAVE_KEY, SAVE_VERSION, AUTO_SAVE_INTERVAL_MS, MAX_OFFLINE_MS } from '../data/constants'
+import { SAVE_KEY, AUTO_SAVE_INTERVAL_MS, MAX_OFFLINE_MS, CLOUD_SAVE_DEBOUNCE_MS } from '../data/constants'
+import { supabase } from '../lib/supabaseClient'
 import { usePlayerStore } from './playerStore'
 import { useAuthStore } from './authStore'
 import { useCrimeStore } from './crimeStore'
@@ -36,32 +37,25 @@ import { useVolunteerStore } from './volunteerStore'
 import { useEncounterStore } from './encounterStore'
 
 let toastId = 0
+let _saveTimer = null
 
 export const useGameStore = defineStore('game', {
   state: () => ({
     initialized: false,
     gameVersion: '0.1.0',
-    saveVersion: SAVE_VERSION,
     notifications: [],
     lastSaveTimestamp: null,
     gameLoopId: null,
+    saving: false,
   }),
 
-  getters: {
-    hasSave() {
-      try {
-        return !!localStorage.getItem(SAVE_KEY)
-      } catch {
-        return false
-      }
-    },
-  },
+  getters: {},
 
   actions: {
     init() {
-      if (this.hasSave) {
-        this.loadGame()
-      }
+      // Cloud-only: nothing to do here.
+      // Auth flow (authStore.loadPlayerProfile) handles loading for authenticated users.
+      // Unauthenticated users are redirected to /auth by the router.
     },
 
     setInitialized(skipSave = false) {
@@ -73,237 +67,126 @@ export const useGameStore = defineStore('game', {
       missionStore.refreshMissions()
       missionStore.startNextStoryMission()
       useCraftingStore().initDefaults()
-      if (!skipSave) this.saveGame()
+      if (!skipSave) this.saveGame({ immediate: true })
     },
 
     /**
-     * @param {{ awaitCloud?: boolean }} options
-     *   awaitCloud: if true, waits for cloud save to finish before returning.
-     *              Use for critical state changes (travel, purchases).
+     * Schedule a cloud save. Debounced by CLOUD_SAVE_DEBOUNCE_MS.
+     * Pass { immediate: true } (or legacy { awaitCloud: true }) for critical operations
+     * (travel, purchases) that must be persisted before continuing.
      */
-    async saveGame({ awaitCloud = false } = {}) {
+    saveGame({ immediate = false, awaitCloud = false } = {}) {
+      const doImmediate = immediate || awaitCloud
+      if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null }
+      if (doImmediate) return this._flushSave()
+      // Debounced: collapse rapid successive calls into one write
+      return new Promise(resolve => {
+        _saveTimer = setTimeout(async () => {
+          _saveTimer = null
+          resolve(await this._flushSave())
+        }, CLOUD_SAVE_DEBOUNCE_MS)
+      })
+    },
+
+    async _flushSave() {
+      const authStore = useAuthStore()
+      if (!authStore.user) return false
+      if (this.saving) return false
+      this.saving = true
       try {
-        const playerStore = usePlayerStore()
-        const authStore = useAuthStore()
-
-        const crimeStore = useCrimeStore()
-        const inventoryStore = useInventoryStore()
-        const combatStore = useCombatStore()
-
-        const saveData = {
-          version: SAVE_VERSION,
-          gameVersion: this.gameVersion,
-          timestamp: Date.now(),
-          userId: authStore.user?.id || null,
-          stores: {
-            player: playerStore.getSerializable(),
-            crime: crimeStore.getSerializable(),
-            inventory: inventoryStore.getSerializable(),
-            combat: combatStore.getSerializable(),
-            job: useJobStore().getSerializable(),
-            property: usePropertyStore().getSerializable(),
-            travel: useTravelStore().getSerializable(),
-            education: useEducationStore().getSerializable(),
-            casino: useCasinoStore().getSerializable(),
-            stock: useStockStore().getSerializable(),
-            dailyReward: useDailyRewardStore().getSerializable(),
-            achievement: useAchievementStore().getSerializable(),
-            mission: useMissionStore().getSerializable(),
-            faction: useFactionStore().getSerializable(),
-            bazaar: useBazaarStore().getSerializable(),
-            company: useCompanyStore().getSerializable(),
-            bounty: useBountyStore().getSerializable(),
-            racing: useRacingStore().getSerializable(),
-            eventsHub: useEventsHubStore().getSerializable(),
-            weeklyEvent: useWeeklyEventStore().getSerializable(),
-            smuggling: useSmugglingStore().getSerializable(),
-            pet: usePetStore().getSerializable(),
-            crafting: useCraftingStore().getSerializable(),
-            loan: useLoanStore().getSerializable(),
-            prestige: usePrestigeStore().getSerializable(),
-            elite: useEliteStore().getSerializable(),
-            card: useCardStore().getSerializable(),
-            auction: useAuctionStore().getSerializable(),
-            dealer: useDealerStore().getSerializable(),
-            class: useClassStore().getSerializable(),
-            boss: useBossStore().getSerializable(),
-            volunteer: useVolunteerStore().getSerializable(),
-          }
-        }
-
-        localStorage.setItem(SAVE_KEY, JSON.stringify(saveData))
-        this.lastSaveTimestamp = Date.now()
-
-        // If user is authenticated, also save to Supabase cloud
-        if (authStore.user) {
-          const cloudSave = playerStore.saveProfileToCloud(saveData)
-          if (awaitCloud) {
-            // Wait for cloud save on critical operations (travel, property, etc.)
-            const success = await cloudSave
-            if (!success) {
-              console.warn('Critical cloud save failed — will retry on next auto-save')
-            }
-          } else {
-            // Fire and forget for auto-saves
-            cloudSave.then(success => {
-              if (!success) console.warn('Cloud save failed (check network)')
-            })
-          }
-        }
-
+        const saveData = this._buildSaveData()
+        const { error } = await supabase
+          .from('profiles')
+          .update({ save_data: saveData })
+          .eq('id', authStore.user.id)
+        if (error) throw error
+        this.lastSaveTimestamp = saveData.timestamp
         return true
       } catch (e) {
-        console.error('Save failed:', e)
+        console.error('Cloud save failed:', e)
         return false
+      } finally {
+        this.saving = false
       }
     },
 
-    loadGame() {
+    _buildSaveData() {
+      const authStore = useAuthStore()
+      return {
+        version: 1,
+        gameVersion: this.gameVersion,
+        timestamp: Date.now(),
+        userId: authStore.user?.id || null,
+        stores: {
+          player: usePlayerStore().getSerializable(),
+          crime: useCrimeStore().getSerializable(),
+          inventory: useInventoryStore().getSerializable(),
+          combat: useCombatStore().getSerializable(),
+          job: useJobStore().getSerializable(),
+          property: usePropertyStore().getSerializable(),
+          travel: useTravelStore().getSerializable(),
+          education: useEducationStore().getSerializable(),
+          casino: useCasinoStore().getSerializable(),
+          stock: useStockStore().getSerializable(),
+          dailyReward: useDailyRewardStore().getSerializable(),
+          achievement: useAchievementStore().getSerializable(),
+          mission: useMissionStore().getSerializable(),
+          faction: useFactionStore().getSerializable(),
+          bazaar: useBazaarStore().getSerializable(),
+          company: useCompanyStore().getSerializable(),
+          bounty: useBountyStore().getSerializable(),
+          racing: useRacingStore().getSerializable(),
+          eventsHub: useEventsHubStore().getSerializable(),
+          weeklyEvent: useWeeklyEventStore().getSerializable(),
+          smuggling: useSmugglingStore().getSerializable(),
+          pet: usePetStore().getSerializable(),
+          crafting: useCraftingStore().getSerializable(),
+          loan: useLoanStore().getSerializable(),
+          prestige: usePrestigeStore().getSerializable(),
+          elite: useEliteStore().getSerializable(),
+          card: useCardStore().getSerializable(),
+          auction: useAuctionStore().getSerializable(),
+          dealer: useDealerStore().getSerializable(),
+          class: useClassStore().getSerializable(),
+          boss: useBossStore().getSerializable(),
+          volunteer: useVolunteerStore().getSerializable(),
+        }
+      }
+    },
+
+    /**
+     * Load game state from Supabase cloud (the single source of truth).
+     * Returns true if save data was found and hydrated, false for new accounts.
+     */
+    async loadGame() {
+      const authStore = useAuthStore()
+      if (!authStore.user) return false
       try {
-        const raw = localStorage.getItem(SAVE_KEY)
-        if (!raw) return false
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('save_data')
+          .eq('id', authStore.user.id)
+          .single()
+        if (error) throw error
 
-        const saveData = JSON.parse(raw)
-        if (!saveData || saveData.version !== SAVE_VERSION) {
-          console.warn('Save version mismatch')
-          return false
-        }
+        // Clear any legacy localStorage game data
+        try { localStorage.removeItem(SAVE_KEY) } catch {}
 
-        const playerStore = usePlayerStore()
+        const saveData = data?.save_data
+        if (!saveData?.stores) return false // new account, no save yet
 
-        const crimeStore = useCrimeStore()
-        const inventoryStore = useInventoryStore()
+        this._hydrateStores(saveData.stores)
 
-        if (saveData.stores.player) {
-          playerStore.hydrate(saveData.stores.player)
-        }
-        if (saveData.stores.crime) {
-          crimeStore.hydrate(saveData.stores.crime)
-        }
-        if (saveData.stores.inventory) {
-          inventoryStore.hydrate(saveData.stores.inventory)
-        }
-        const combatStore = useCombatStore()
-        if (saveData.stores.combat) {
-          combatStore.hydrate(saveData.stores.combat)
-        }
-        const jobStore = useJobStore()
-        if (saveData.stores.job) {
-          jobStore.hydrate(saveData.stores.job)
-        }
-        const propertyStore = usePropertyStore()
-        if (saveData.stores.property) {
-          propertyStore.hydrate(saveData.stores.property)
-        }
-        const travelStore = useTravelStore()
-        if (saveData.stores.travel) {
-          travelStore.hydrate(saveData.stores.travel)
-        }
-        const educationStore = useEducationStore()
-        if (saveData.stores.education) {
-          educationStore.hydrate(saveData.stores.education)
-        }
-        const casinoStore = useCasinoStore()
-        if (saveData.stores.casino) {
-          casinoStore.hydrate(saveData.stores.casino)
-        }
-        const stockStore = useStockStore()
-        if (saveData.stores.stock) {
-          stockStore.hydrate(saveData.stores.stock)
-        } else {
-          stockStore.initializePrices()
-        }
-
-        const dailyRewardStore = useDailyRewardStore()
-        if (saveData.stores.dailyReward) {
-          dailyRewardStore.hydrate(saveData.stores.dailyReward)
-        }
-        const achievementStore = useAchievementStore()
-        if (saveData.stores.achievement) {
-          achievementStore.hydrate(saveData.stores.achievement)
-        }
-        const missionStore = useMissionStore()
-        if (saveData.stores.mission) {
-          missionStore.hydrate(saveData.stores.mission)
-        }
-        const factionStore = useFactionStore()
-        if (saveData.stores.faction) {
-          factionStore.hydrate(saveData.stores.faction)
-        }
-        const bazaarStore = useBazaarStore()
-        if (saveData.stores.bazaar) {
-          bazaarStore.hydrate(saveData.stores.bazaar)
-        }
-        const companyStore = useCompanyStore()
-        if (saveData.stores.company) {
-          companyStore.hydrate(saveData.stores.company)
-        }
-        const bountyStore = useBountyStore()
-        if (saveData.stores.bounty) {
-          bountyStore.hydrate(saveData.stores.bounty)
-        }
-        const racingStore = useRacingStore()
-        if (saveData.stores.racing) {
-          racingStore.hydrate(saveData.stores.racing)
-        }
-        if (saveData.stores.eventsHub) {
-          useEventsHubStore().hydrate(saveData.stores.eventsHub)
-        }
-        if (saveData.stores.weeklyEvent) {
-          useWeeklyEventStore().hydrate(saveData.stores.weeklyEvent)
-        }
-        if (saveData.stores.smuggling) {
-          useSmugglingStore().hydrate(saveData.stores.smuggling)
-        }
-        if (saveData.stores.pet) {
-          usePetStore().hydrate(saveData.stores.pet)
-        }
-        const craftingStore = useCraftingStore()
-        if (saveData.stores.crafting) {
-          craftingStore.hydrate(saveData.stores.crafting)
-        }
-        craftingStore.initDefaults()
-        if (saveData.stores.loan) {
-          useLoanStore().hydrate(saveData.stores.loan)
-        }
-        if (saveData.stores.prestige) {
-          usePrestigeStore().hydrate(saveData.stores.prestige)
-        }
-        if (saveData.stores.elite) {
-          useEliteStore().hydrate(saveData.stores.elite)
-        }
-        if (saveData.stores.card) {
-          useCardStore().hydrate(saveData.stores.card)
-        }
-        if (saveData.stores.auction) {
-          useAuctionStore().hydrate(saveData.stores.auction)
-        }
-        if (saveData.stores.dealer) {
-          useDealerStore().hydrate(saveData.stores.dealer)
-        }
-        if (saveData.stores.class) {
-          useClassStore().hydrate(saveData.stores.class)
-        }
-        if (saveData.stores.boss) {
-          useBossStore().hydrate(saveData.stores.boss)
-        }
-        if (saveData.stores.volunteer) {
-          useVolunteerStore().hydrate(saveData.stores.volunteer)
-        }
-
-        // Calculate offline progress
+        // Offline progress
         const elapsed = Math.min(MAX_OFFLINE_MS, Date.now() - (saveData.timestamp || Date.now()))
-        if (elapsed > 5000) { // Only if more than 5 seconds passed
-          playerStore.tickRegen(elapsed)
-        }
+        if (elapsed > 5000) usePlayerStore().tickRegen(elapsed)
 
-        this.initialized = true
         this.lastSaveTimestamp = saveData.timestamp
 
-        // Check daily systems
+        // Daily systems
         useDailyRewardStore().checkDaily()
-        missionStore.refreshMissions()
-        missionStore.startNextStoryMission()
+        useMissionStore().refreshMissions()
+        useMissionStore().startNextStoryMission()
         useAchievementStore().checkAchievements()
         useWeeklyEventStore().checkWeeklyRotation()
         useLoanStore().dailyLoanCheck()
@@ -311,18 +194,54 @@ export const useGameStore = defineStore('game', {
 
         return true
       } catch (e) {
-        console.error('Load failed:', e)
+        console.error('Cloud load failed:', e)
         return false
       }
     },
 
-    exportSave() {
-      this.saveGame()
-      try {
-        const raw = localStorage.getItem(SAVE_KEY)
-        if (!raw) return
+    _hydrateStores(s) {
+      if (s.player) usePlayerStore().hydrate(s.player)
+      if (s.crime) useCrimeStore().hydrate(s.crime)
+      if (s.inventory) useInventoryStore().hydrate(s.inventory)
+      if (s.combat) useCombatStore().hydrate(s.combat)
+      if (s.job) useJobStore().hydrate(s.job)
+      if (s.property) usePropertyStore().hydrate(s.property)
+      if (s.travel) useTravelStore().hydrate(s.travel)
+      if (s.education) useEducationStore().hydrate(s.education)
+      if (s.casino) useCasinoStore().hydrate(s.casino)
+      const stockStore = useStockStore()
+      if (s.stock) stockStore.hydrate(s.stock); else stockStore.initializePrices()
+      if (s.dailyReward) useDailyRewardStore().hydrate(s.dailyReward)
+      if (s.achievement) useAchievementStore().hydrate(s.achievement)
+      if (s.mission) useMissionStore().hydrate(s.mission)
+      if (s.faction) useFactionStore().hydrate(s.faction)
+      if (s.bazaar) useBazaarStore().hydrate(s.bazaar)
+      if (s.company) useCompanyStore().hydrate(s.company)
+      if (s.bounty) useBountyStore().hydrate(s.bounty)
+      if (s.racing) useRacingStore().hydrate(s.racing)
+      if (s.eventsHub) useEventsHubStore().hydrate(s.eventsHub)
+      if (s.weeklyEvent) useWeeklyEventStore().hydrate(s.weeklyEvent)
+      if (s.smuggling) useSmugglingStore().hydrate(s.smuggling)
+      if (s.pet) usePetStore().hydrate(s.pet)
+      const craftingStore = useCraftingStore()
+      if (s.crafting) craftingStore.hydrate(s.crafting)
+      craftingStore.initDefaults()
+      if (s.loan) useLoanStore().hydrate(s.loan)
+      if (s.prestige) usePrestigeStore().hydrate(s.prestige)
+      if (s.elite) useEliteStore().hydrate(s.elite)
+      if (s.card) useCardStore().hydrate(s.card)
+      if (s.auction) useAuctionStore().hydrate(s.auction)
+      if (s.dealer) useDealerStore().hydrate(s.dealer)
+      if (s.class) useClassStore().hydrate(s.class)
+      if (s.boss) useBossStore().hydrate(s.boss)
+      if (s.volunteer) useVolunteerStore().hydrate(s.volunteer)
+    },
 
-        const blob = new Blob([raw], { type: 'application/json' })
+    async exportSave() {
+      await this.saveGame({ immediate: true })
+      try {
+        const saveData = this._buildSaveData()
+        const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         const date = new Date().toISOString().split('T')[0]
@@ -330,33 +249,20 @@ export const useGameStore = defineStore('game', {
         a.download = `chaos_save_${date}.json`
         a.click()
         URL.revokeObjectURL(url)
-        this.addNotification('Το αρχείο αποθήκευσης εξήχθη!', 'success')
+        this.addNotification('Αποθήκευση εξήχθη!', 'success')
       } catch (e) {
         this.addNotification('Σφάλμα κατά την εξαγωγή', 'danger')
       }
     },
 
-    importSave(jsonString) {
-      try {
-        const data = JSON.parse(jsonString)
-        if (!data || data.version !== SAVE_VERSION) {
-          this.addNotification('Μη έγκυρο αρχείο αποθήκευσης', 'danger')
-          return false
-        }
-
-        localStorage.setItem(SAVE_KEY, jsonString)
-        this.loadGame()
-        this.addNotification('Η αποθήκευση εισήχθη επιτυχώς!', 'success')
-        return true
-      } catch (e) {
-        this.addNotification('Σφάλμα κατά την εισαγωγή', 'danger')
-        return false
+    async deleteSave() {
+      const authStore = useAuthStore()
+      if (authStore.user) {
+        await supabase.from('profiles').update({ save_data: null }).eq('id', authStore.user.id)
       }
-    },
-
-    deleteSave() {
-      localStorage.removeItem(SAVE_KEY)
+      this.stopGameLoop()
       this.initialized = false
+      usePlayerStore().$reset()
       this.addNotification('Η αποθήκευση διαγράφηκε', 'warning')
     },
 
@@ -389,6 +295,15 @@ export const useGameStore = defineStore('game', {
       const stockStore = useStockStore()
       let lastSave = Date.now()
 
+      // Flush pending debounced save when tab goes to background or is closed
+      this._onVisHide = () => {
+        if (document.hidden && this.initialized) {
+          if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null }
+          this._flushSave()
+        }
+      }
+      document.addEventListener('visibilitychange', this._onVisHide)
+
       const tick = () => {
         const now = Date.now()
         const delta = Math.min(60000, now - playerStore.lastTick)
@@ -417,7 +332,7 @@ export const useGameStore = defineStore('game', {
         // Black market dealer spawn cycle
         useDealerStore().tickDealer(now)
 
-        // Auto-save
+        // Periodic cloud save (safety net for regen/tick-only changes)
         if (now - lastSave >= AUTO_SAVE_INTERVAL_MS) {
           this.saveGame()
           lastSave = now
@@ -433,6 +348,10 @@ export const useGameStore = defineStore('game', {
       if (this.gameLoopId) {
         cancelAnimationFrame(this.gameLoopId)
         this.gameLoopId = null
+      }
+      if (this._onVisHide) {
+        document.removeEventListener('visibilitychange', this._onVisHide)
+        this._onVisHide = null
       }
     },
   }

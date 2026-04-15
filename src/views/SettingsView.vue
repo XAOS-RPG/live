@@ -37,11 +37,9 @@
 <script setup>
 import { useGameStore } from '../stores/gameStore'
 import { usePlayerStore } from '../stores/playerStore'
-import { useRouter } from 'vue-router'
 
 const gameStore = useGameStore()
 const player = usePlayerStore()
-const router = useRouter()
 
 function formatDate(timestamp) {
   return new Date(timestamp).toLocaleString('el-GR')
@@ -53,27 +51,6 @@ function formatAge() {
   return `${days} ημέρ${days === 1 ? 'α' : 'ες'}`
 }
 
-function handleImport(event) {
-  const file = event.target.files[0]
-  if (!file) return
-
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    const success = gameStore.importSave(e.target.result)
-    if (success) {
-      router.push('/')
-    }
-  }
-  reader.readAsText(file)
-  event.target.value = ''
-}
-
-function confirmDelete() {
-  if (confirm('Είσαι σίγουρος; Θα χάσεις ΟΛΗ την πρόοδό σου!')) {
-    gameStore.deleteSave()
-    router.push('/create')
-  }
-}
 </script>
 
 <style scoped>

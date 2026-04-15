@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { supabase } from '../lib/supabaseClient'
 import { useGameStore } from './gameStore'
 import { usePlayerStore } from './playerStore'
-import { RESOURCE_DEFAULTS } from '../data/constants'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -156,47 +155,19 @@ export const useAuthStore = defineStore('auth', {
     async resetProgress() {
       if (!this.user) return { success: false }
       try {
-        const { SAVE_KEY, RESOURCE_DEFAULTS: RD } = await import('../data/constants')
-
-        // 1. Clear localStorage
-        try { localStorage.removeItem(SAVE_KEY) } catch {}
-
-        // 2. Reset Supabase profile to defaults (keep name/email, wipe save_data & stats)
-        const defaultStats = { strength: 5, speed: 5, dexterity: 5, defense: 5 }
-        const defaultResources = {
-          hp: { current: RD.hp.max, max: RD.hp.max },
-          energy: { current: RD.energy.max, max: RD.energy.max },
-          nerve: { current: RD.nerve.max, max: RD.nerve.max },
-          happiness: { current: 100, max: RD.happiness.max }
-        }
+        // Wipe save_data in cloud — Pinia defaults become the new game state
         const { error } = await supabase
           .from('profiles')
-          .update({
-            level: 1,
-            xp: 0,
-            cash: 500,
-            bank: 0,
-            vault: 0,
-            filotimo: 50,
-            meson: 0,
-            crime_xp: 0,
-            status: 'free',
-            status_timer_end: null,
-            stats: defaultStats,
-            resources: defaultResources,
-            save_data: null,
-          })
+          .update({ save_data: null })
           .eq('id', this.user.id)
         if (error) throw error
 
-        // 3. Reset all in-memory stores and reinitialize
         const gameStore = useGameStore()
         gameStore.stopGameLoop()
         gameStore.initialized = false
-        const playerStore = usePlayerStore()
-        playerStore.$reset()
+        usePlayerStore().$reset()
 
-        // 4. Reload profile (will hit the "no save anywhere" path and use defaults)
+        // Reload — loadGame() will return false (no save_data), then setInitialized writes fresh save
         await this.loadPlayerProfile()
 
         this.showNotification('Η πρόοδος διαγράφηκε. Ξεκινάς από την αρχή!', 'warning')
@@ -208,140 +179,61 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async createUserProfile(userId, username, email) {
-      const defaultStats = { strength: 5, speed: 5, dexterity: 5, defense: 5 }
-      const defaultResources = {
-        hp: { current: RESOURCE_DEFAULTS.hp.max, max: RESOURCE_DEFAULTS.hp.max },
-        energy: { current: RESOURCE_DEFAULTS.energy.max, max: RESOURCE_DEFAULTS.energy.max },
-        nerve: { current: RESOURCE_DEFAULTS.nerve.max, max: RESOURCE_DEFAULTS.nerve.max },
-        happiness: { current: 100, max: RESOURCE_DEFAULTS.happiness.max }
-      }
-
+    async createUserProfile(userId, username) {
       try {
         const { error } = await supabase
           .from('profiles')
-          .upsert({
-            id: userId,
-            username,
-            name: username,
-            gender: 'male',
-            level: 1,
-            xp: 0,
-            cash: 500,
-            bank: 0,
-            vault: 0,
-            filotimo: 50,
-            meson: 0,
-            crime_xp: 0,
-            status: 'free',
-            status_timer_end: null,
-            stats: defaultStats,
-            resources: defaultResources,
-            created_at: new Date().toISOString()
-          }, { onConflict: 'id' })
-
-        if (error) {
-          console.warn('Profile creation error:', error)
-          return false // signal failure to caller
-        }
-
-        console.log('Profile created successfully')
+          .upsert({ id: userId, username }, { onConflict: 'id' })
+        if (error) { console.warn('Profile creation error:', error); return false }
         return true
       } catch (err) {
-        console.warn('Profile creation failed:', err)
-        return false
+        console.warn('Profile creation failed:', err); return false
       }
     },
 
+    /**
+     * Load save from cloud (single source of truth) and initialize game state.
+     */
     async loadPlayerProfile() {
       if (!this.user) return
+      const gameStore = useGameStore()
+      const playerStore = usePlayerStore()
+
+      // Clear any legacy localStorage game data on this device
+      try { localStorage.removeItem('chaos_save_v1') } catch {}
 
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', this.user.id)
-          .single()
+        const loaded = await gameStore.loadGame()
 
-        if (error) throw error
-
-        const gameStore = useGameStore()
-        const playerStore = usePlayerStore()
-
-        // Compare cloud save_data timestamp vs localStorage timestamp
-        const cloudSave = data.save_data
-        const cloudTs = cloudSave?.timestamp || 0
-
-        const { SAVE_KEY, SAVE_VERSION } = await import('../data/constants')
-        let localTs = 0
-        let localBelongsToThisUser = false
-        try {
-          const raw = localStorage.getItem(SAVE_KEY)
-          if (raw) {
-            const parsed = JSON.parse(raw)
-            if (parsed?.version === SAVE_VERSION) {
-              localTs = parsed.timestamp || 0
-              // A save belongs to this user if it has a matching userId,
-              // OR if it has no userId (legacy save before we added the field — assume same device/user)
-              localBelongsToThisUser = !parsed.userId || parsed.userId === this.user.id
-            }
-          }
-        } catch {}
-
-        // If local save belongs to a different user, discard it immediately
-        if (localTs > 0 && !localBelongsToThisUser) {
-          console.log('Discarding stale localStorage — belongs to a different user')
-          try { localStorage.removeItem(SAVE_KEY) } catch {}
-          localTs = 0
-        }
-
-        console.log('Player profile loaded:', data)
-        console.log(`Cloud ts: ${cloudTs}, Local ts: ${localTs}, localBelongsToThisUser: ${localBelongsToThisUser}`)
-
-        if (cloudSave && cloudTs >= localTs) {
-          // Cloud is newer (or equal) — load full save from cloud
-          console.log('Loading from cloud save (newer)')
-          localStorage.setItem(SAVE_KEY, JSON.stringify(cloudSave))
-          gameStore.loadGame()
-          gameStore.setInitialized(true) // skipSave=true, don't overwrite cloud
-        } else if (localTs > cloudTs && localTs > 0) {
-          // Local is genuinely newer (same account, played offline)
-          console.log('Loading from localStorage (newer)')
-          if (!gameStore.initialized) {
-            gameStore.loadGame()
-            gameStore.setInitialized(true)
-          }
+        if (loaded) {
+          // Existing cloud save found — do NOT call saveGame here (would overwrite what we just loaded)
+          gameStore.setInitialized(true)
         } else {
-          // No save anywhere — hydrate from profile basics
-          await playerStore.hydrateFromProfile(data)
-          if (!gameStore.initialized) gameStore.setInitialized()
+          // New account or save_data is null — fetch username from profile row
+          const { data } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', this.user.id)
+            .single()
+          if (data?.username) playerStore.name = data.username
+          // setInitialized() will write the first cloud save for this account
+          gameStore.setInitialized()
         }
 
-        this.showNotification('Προφίλ φορτώθηκε', 'success')
+        this.showNotification('Καλώς ήρθες!', 'success')
       } catch (error) {
         console.error('Failed to load player profile:', error)
 
-        if (error.code === 'PGRST116') {
-          console.warn('Profile missing, creating default...')
-          const created = await this.createUserProfile(
-            this.user.id,
-            this.user.user_metadata?.username || this.user.email,
-            this.user.email
-          )
+        if (error?.code === 'PGRST116') {
+          // Profile row missing — create it, then retry
+          console.warn('Profile row missing, creating...')
+          const username = this.user.user_metadata?.username || this.user.email?.split('@')[0] || `user_${this.user.id.substring(0, 8)}`
+          const created = await this.createUserProfile(this.user.id, username)
           if (created) {
-            const { data: retryData, error: retryErr } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', this.user.id)
-              .single()
-            if (!retryErr && retryData) {
-              const playerStore = usePlayerStore()
-              await playerStore.hydrateFromProfile(retryData)
-              const gameStore = useGameStore()
-              if (!gameStore.initialized) gameStore.setInitialized()
-            }
+            playerStore.name = username
+            gameStore.setInitialized()
           } else {
-            console.warn('Profile creation failed — signing out stale session')
+            console.warn('Profile creation failed — signing out')
             await supabase.auth.signOut()
           }
         } else {
@@ -350,53 +242,8 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /**
-     * Re-sync from cloud when app regains focus (e.g. user switches from mobile to PC).
-     * Only loads cloud data if it's strictly newer than local — prevents overwriting
-     * in-progress play on this device.
-     */
-    async syncFromCloud() {
-      if (!this.user) return
-
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('save_data')
-          .eq('id', this.user.id)
-          .single()
-
-        if (error || !data?.save_data) return
-
-        const cloudSave = data.save_data
-        const cloudTs = cloudSave?.timestamp || 0
-
-        const { SAVE_KEY, SAVE_VERSION } = await import('../data/constants')
-        let localTs = 0
-        try {
-          const raw = localStorage.getItem(SAVE_KEY)
-          if (raw) {
-            const parsed = JSON.parse(raw)
-            if (parsed?.version === SAVE_VERSION) localTs = parsed.timestamp || 0
-          }
-        } catch {}
-
-        // Only load if cloud is STRICTLY newer (not equal — equal means this device saved last)
-        if (cloudTs > localTs) {
-          console.log(`Cloud sync: cloud is newer (cloud=${cloudTs}, local=${localTs}), reloading`)
-          const gameStore = useGameStore()
-          localStorage.setItem(SAVE_KEY, JSON.stringify(cloudSave))
-          gameStore.loadGame()
-          this.showNotification('Συγχρονισμός από cloud', 'info')
-        }
-      } catch (err) {
-        console.warn('syncFromCloud failed:', err)
-      }
-    },
-
     handleNewUserSession() {
       console.log('New user session:', this.user)
-      // Only load profile if game isn't already initialized (avoids double-load
-      // when SIGNED_IN fires right after initializeAuth already loaded it)
       const gameStore = useGameStore()
       if (!gameStore.initialized) {
         this.loadPlayerProfile()
@@ -406,20 +253,13 @@ export const useAuthStore = defineStore('auth', {
     clearAuthState() {
       this.user = null
       this.session = null
-
-      // Clear localStorage save to prevent stale data leaking to another account
-      try {
-        localStorage.removeItem('chaos_save_v1')
-      } catch {}
-
-      // Reset game initialization flag so next login starts fresh
+      // Clear legacy localStorage game data
+      try { localStorage.removeItem('chaos_save_v1') } catch {}
+      // Reset game
       const gameStore = useGameStore()
       gameStore.stopGameLoop()
       gameStore.initialized = false
-
-      // Reset player store in memory
-      const playerStore = usePlayerStore()
-      playerStore.$reset()
+      usePlayerStore().$reset()
     },
 
     showNotification(message, type = 'info') {

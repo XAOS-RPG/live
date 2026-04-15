@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npx vite:*)",
       "Bash(node --input-type=module --eval ':*)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Read(//c/Users/George/Desktop/xaos/ github/live/src/stores/**)",
+      "Read(//c/Users/George/Desktop/xaos/ github/live/src/lib/**)",
+      "Read(//c/Users/George/Desktop/xaos/ github/live/src/data/**)"
     ]
   }
 }

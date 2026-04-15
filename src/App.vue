@@ -32,13 +32,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from './stores/gameStore'
 import { usePlayerStore } from './stores/playerStore'
 import { useTravelStore } from './stores/travelStore'
 import { useClassStore } from './stores/classStore'
-import { useAuthStore } from './stores/authStore'
 import StatusBar from './components/layout/StatusBar.vue'
 import NavBar from './components/layout/NavBar.vue'
 import ToastNotification from './components/ui/ToastNotification.vue'
@@ -50,7 +49,6 @@ const gameStore = useGameStore()
 const player = usePlayerStore()
 const travelStore = useTravelStore()
 const classStore = useClassStore()
-const authStore = useAuthStore()
 const router = useRouter()
 
 // ── Travel dice (global) ──────────────────────────────────────────────────
@@ -97,12 +95,10 @@ function onTravelDiceDismiss() {
 }
 
 // ── Game init ─────────────────────────────────────────────────────────────
-// Auth is initialized by the router guard (beforeEach) before any route renders.
-// If not authenticated, fall back to localStorage.
+// Auth + cloud load is handled by the router guard (beforeEach) via authStore.loadPlayerProfile().
+// Nothing to do here for authenticated users.
 onMounted(() => {
-  if (!authStore.isAuthenticated && !gameStore.initialized) {
-    gameStore.init()
-  }
+  // No-op: cloud-only system is initialized by router/authStore
 })
 
 watch(() => gameStore.initialized, (val) => {
@@ -112,17 +108,6 @@ watch(() => gameStore.initialized, (val) => {
     router.push('/create')
   }
 }, { immediate: true })
-
-// ── Cross-device sync: re-check cloud when tab/app regains focus ─────────
-function onVisibilityChange() {
-  if (!document.hidden && authStore.isAuthenticated && gameStore.initialized) {
-    authStore.syncFromCloud()
-  }
-}
-document.addEventListener('visibilitychange', onVisibilityChange)
-onUnmounted(() => {
-  document.removeEventListener('visibilitychange', onVisibilityChange)
-})
 </script>
 
 <style scoped>

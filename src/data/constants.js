@@ -27,5 +27,6 @@ export const MIN_STAT = 1
 export const MAX_STAT_CREATION = 10
 export const STARTING_CASH = 500
 
-export const SAVE_KEY = 'chaos_save_v1'
+export const SAVE_KEY = 'chaos_save_v1'        // kept only for clearing legacy data
 export const SAVE_VERSION = 1
+export const CLOUD_SAVE_DEBOUNCE_MS = 2000     // ms to wait before flushing a cloud write

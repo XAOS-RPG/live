@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia'
 import { RESOURCE_DEFAULTS, REGEN_RATES, FILOTIMO_MAX, MESON_MAX, ACTIVITY_LOG_MAX } from '../data/constants'
-import { supabase } from '../lib/supabaseClient'
 import { useGameStore } from './gameStore'
-import { useAuthStore } from './authStore'
 import { useWeeklyEventStore } from './weeklyEventStore'
 import { usePetStore } from './petStore'
 import { usePrestigeStore } from './prestigeStore'
@@ -75,6 +73,9 @@ export const usePlayerStore = defineStore('player', {
 
     // Medical Badge from blood donation: { expiresAt: timestamp } or null
     medicalBadge: null,
+
+    // Blood donation cooldown (ms timestamp of last donation)
+    bloodDonationLast: 0,
   }),
 
   getters: {
@@ -435,6 +436,7 @@ export const usePlayerStore = defineStore('player', {
         createdAt: this.createdAt,
         activityLog: [...this.activityLog],
         medicalBadge: this.medicalBadge ? { ...this.medicalBadge } : null,
+        bloodDonationLast: this.bloodDonationLast,
       }
     },
 
@@ -458,110 +460,6 @@ export const usePlayerStore = defineStore('player', {
           this[key] = data[key]
         }
       })
-    },
-
-    async fetchProfile() {
-      // Fetch the current user's profile from Supabase
-      const gameStore = useGameStore()
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', this.userId) // Need to have userId from authStore
-          .single()
-
-        if (error) throw error
-
-        this.hydrateFromProfile(data)
-        gameStore.addNotification('Προφίλ φορτώθηκε από το cloud', 'success')
-        return data
-      } catch (error) {
-        console.error('Failed to fetch profile:', error)
-        gameStore.addNotification('Σφάλμα φόρτωσης προφίλ από το cloud', 'danger')
-        return null
-      }
-    },
-
-    async saveProfileToCloud(saveData = null) {
-      // Push current player state to Supabase profiles table
-      const gameStore = useGameStore()
-      const authStore = useAuthStore()
-      try {
-        // Ensure auth store is fully initialized before attempting cloud save
-        if (!authStore.initialized) {
-          console.debug('Auth store not yet initialized - skipping cloud save')
-          return false
-        }
-
-        // Primary source: getter that reads authStore.user?.id
-        let userId = this.userId
-        
-        if (!userId) {
-          const { data } = await supabase.auth.getSession()
-          userId = data?.session?.user?.id || null
-          console.debug('Fallback userId from session:', userId)
-        }
-
-        if (!userId) {
-          console.debug('Cannot save profile to cloud: userId is null - skipping cloud save')
-          return false
-        }
-
-        // Ensure username is not empty (UNIQUE NOT NULL constraint)
-        const username = this.name || authStore.user?.email?.split('@')[0] || `user_${userId.substring(0, 8)}`
-        
-        const profileData = {
-          username,
-          name: this.name,
-          gender: this.gender,
-          level: this.level,
-          xp: this.xp,
-          cash: this.cash,
-          bank: this.bank,
-          vault: this.vault,
-          filotimo: this.filotimo,
-          meson: this.meson,
-          crime_xp: this.crimeXP,
-          status: this.status,
-          status_timer_end: this.statusTimerEnd ? new Date(this.statusTimerEnd).toISOString() : null,
-          stats: this.stats,
-          resources: this.resources,
-          updated_at: new Date().toISOString()
-        }
-
-        // Include full save blob if provided (for cross-device sync)
-        if (saveData) {
-          // Guard: don't overwrite a newer cloud save from another device
-          try {
-            const { data: existing } = await supabase
-              .from('profiles')
-              .select('save_data')
-              .eq('id', userId)
-              .single()
-            const cloudTs = existing?.save_data?.timestamp || 0
-            const localTs = saveData.timestamp || 0
-            if (cloudTs > localTs) {
-              console.warn(`Cloud save is newer (cloud=${cloudTs}, local=${localTs}) — skipping overwrite`)
-              return false
-            }
-          } catch {}
-
-          profileData.save_data = saveData
-        }
-
-        const { error } = await supabase
-          .from('profiles')
-          .upsert({ id: userId, ...profileData }, { onConflict: 'id' })
-
-        if (error) throw error
-
-        console.log('Profile saved to cloud')
-        return true
-      } catch (error) {
-        console.error('Failed to save profile to cloud:', error)
-        gameStore.addNotification('Σφάλμα αποθήκευσης στο cloud', 'danger')
-        return false
-      }
     },
 
     hydrateFromProfile(profile) {
@@ -592,10 +490,5 @@ export const usePlayerStore = defineStore('player', {
       // Note: regenAccumulators, activityLog, activeActivity, pendingResult are local-only
     },
 
-    // Helper getter to get userId from auth store
-    get userId() {
-      const authStore = useAuthStore()
-      return authStore.user?.id || null
-    },
   }
 })
