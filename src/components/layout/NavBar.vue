@@ -113,7 +113,6 @@ const categories = [
     items: [
       { to: '/shop',        icon: '🛒', label: 'Κατάστημα',          badgeKey: null },
       { to: '/bazaar',      icon: '🏪', label: 'Παζάρι',             badgeKey: 'bazaar' },
-      { to: '/auction',     icon: '🏛️', label: 'Δημοπρασία',         badgeKey: null },
       { to: '/inventory',   icon: '🎒', label: 'Τσέπη',              badgeKey: null },
       { to: '/workshop',    icon: '🔨', label: 'Κατασκευές & Πατέντες', badgeKey: null },
       { to: '/pets',        icon: '🐾', label: 'Κατοικίδια',         badgeKey: null },
@@ -124,6 +123,7 @@ const categories = [
     items: [
       { to: '/casino',      icon: '🎲', label: 'Τυχερά',           badgeKey: null },
       { to: '/lucky-kiosk', icon: '🎰', label: 'Τυχερό Περίπτερο', badgeKey: null },
+      { to: '/tv-games',    icon: '📺', label: 'Τηλεπαιχνίδια',    badgeKey: null },
       { to: '/kontres',     icon: '🏎️', label: 'Κόντρες',          badgeKey: null },
     ],
   },
