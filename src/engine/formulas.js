@@ -210,6 +210,21 @@ export function calculateBribeCost(remainingTimeMs) {
 }
 
 /**
+ * Calculate arrest risk for a smuggling run given vehicle and cargo.
+ * The vehicle's avoidance stat reduces the base checkpoint chance.
+ * @param {string} vehicleId - from VEHICLES data
+ * @param {Array<{rarity: string, quantity: number}>} cargo
+ * @returns {number} 0.01–0.80 probability of arrest
+ */
+export function calculateArrestRisk(vehicleId, cargo) {
+  const { calculateCheckpointChance } = require('../data/contraband')
+  const { getVehicleById } = require('../data/vehicles')
+  const rawRisk = calculateCheckpointChance(cargo)
+  const avoidance = getVehicleById(vehicleId)?.avoidance ?? 0
+  return Math.max(0.01, Math.min(0.80, rawRisk * (1 - avoidance)))
+}
+
+/**
  * Convert a probability (0-1) to d6 dice values.
  * Returns { roll (1-6), targetRoll (1-6), success }.
  * High roll = success. "Φέρε targetRoll και πάνω" to win.

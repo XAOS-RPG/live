@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { contrabandGoods, getContrabandPrice, calculateCheckpointChance } from '../data/contraband'
+import { VEHICLES, SEA_ROUTE_CITIES, getVehicleById } from '../data/vehicles'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useTravelStore } from './travelStore'
@@ -16,6 +17,8 @@ export const useSmugglingStore = defineStore('smuggling', {
     successfulRuns: 0,
     totalProfit: 0,
     lastBusted: null,
+    equippedVehicle: 'papaki',
+    ownedVehicles: ['papaki'],
   }),
 
   getters: {
@@ -26,12 +29,20 @@ export const useSmugglingStore = defineStore('smuggling', {
       }, 0)
     },
 
+    effectiveMaxCargoSlots() {
+      return this.maxCargoSlots + (getVehicleById(this.equippedVehicle)?.cargoBonus ?? 0)
+    },
+
     cargoSlotsFree() {
-      return Math.max(0, this.maxCargoSlots - this.cargoWeight)
+      return Math.max(0, this.effectiveMaxCargoSlots - this.cargoWeight)
     },
 
     hasCargo() {
       return this.cargo.length > 0
+    },
+
+    equippedVehicleData() {
+      return getVehicleById(this.equippedVehicle) ?? VEHICLES[0]
     },
 
     checkpointRisk() {
@@ -39,7 +50,9 @@ export const useSmugglingStore = defineStore('smuggling', {
         const good = contrabandGoods.find(g => g.id === c.goodId)
         return { rarity: good?.rarity || 'common', quantity: c.quantity }
       })
-      return calculateCheckpointChance(cargoForCalc)
+      const rawRisk = calculateCheckpointChance(cargoForCalc)
+      const avoidance = getVehicleById(this.equippedVehicle)?.avoidance ?? 0
+      return Math.max(0.01, rawRisk * (1 - avoidance))
     },
   },
 
@@ -184,6 +197,68 @@ export const useSmugglingStore = defineStore('smuggling', {
     },
 
     /**
+     * Buy a smuggling vehicle.
+     */
+    buyVehicle(vehicleId) {
+      const vehicle = getVehicleById(vehicleId)
+      if (!vehicle) return false
+      if (this.ownedVehicles.includes(vehicleId)) return false
+
+      const player = usePlayerStore()
+      const gameStore = useGameStore()
+
+      if (player.level < vehicle.unlockLevel) {
+        gameStore.addNotification(`Χρειάζεσαι Επίπεδο ${vehicle.unlockLevel} για αυτό το όχημα!`, 'danger')
+        return false
+      }
+      if (player.cash < vehicle.price) {
+        gameStore.addNotification('Δεν έχεις αρκετά χρήματα!', 'danger')
+        return false
+      }
+
+      player.removeCash(vehicle.price)
+      this.ownedVehicles.push(vehicleId)
+      gameStore.addNotification(`Αγόρασες ${vehicle.icon} ${vehicle.name}!`, 'success')
+      player.logActivity(`🚗 Αγορά οχήματος: ${vehicle.name}`, 'info')
+      gameStore.saveGame()
+      return true
+    },
+
+    /**
+     * Equip a vehicle for smuggling runs.
+     */
+    equipVehicle(vehicleId) {
+      const vehicle = getVehicleById(vehicleId)
+      if (!vehicle) return false
+      if (!this.ownedVehicles.includes(vehicleId)) return false
+
+      const gameStore = useGameStore()
+      const travelStore = useTravelStore()
+
+      if (vehicle.seaOnly && !SEA_ROUTE_CITIES.includes(travelStore.currentLocation)) {
+        gameStore.addNotification('Το Ταχύπλοο μπορεί να χρησιμοποιηθεί μόνο από νησιά!', 'danger')
+        return false
+      }
+
+      this.equippedVehicle = vehicleId
+      gameStore.addNotification(`${vehicle.icon} ${vehicle.name} εξοπλίστηκε!`, 'success')
+      gameStore.saveGame()
+      return true
+    },
+
+    /**
+     * Auto-unequip sea-only vehicle when arriving at a mainland city.
+     */
+    checkVehicleOnArrival(cityId) {
+      const vehicle = getVehicleById(this.equippedVehicle)
+      if (vehicle?.seaOnly && !SEA_ROUTE_CITIES.includes(cityId)) {
+        this.equippedVehicle = 'papaki'
+        const gameStore = useGameStore()
+        gameStore.addNotification('Το Ταχύπλοο αποσυνδέθηκε — δεν μπορεί να χρησιμοποιηθεί στην ηπειρωτική χώρα.', 'warning')
+      }
+    },
+
+    /**
      * Drop all cargo (panic dump).
      */
     dropAllCargo() {
@@ -205,6 +280,8 @@ export const useSmugglingStore = defineStore('smuggling', {
         successfulRuns: this.successfulRuns,
         totalProfit: this.totalProfit,
         lastBusted: this.lastBusted,
+        equippedVehicle: this.equippedVehicle,
+        ownedVehicles: [...this.ownedVehicles],
       }
     },
 
@@ -216,6 +293,8 @@ export const useSmugglingStore = defineStore('smuggling', {
       if (data.successfulRuns !== undefined) this.successfulRuns = data.successfulRuns
       if (data.totalProfit !== undefined) this.totalProfit = data.totalProfit
       if (data.lastBusted !== undefined) this.lastBusted = data.lastBusted
+      if (data.equippedVehicle) this.equippedVehicle = data.equippedVehicle
+      if (Array.isArray(data.ownedVehicles)) this.ownedVehicles = data.ownedVehicles
     },
   },
 })

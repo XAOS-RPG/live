@@ -82,6 +82,7 @@ export const contrabandGoods = [
     basePrice: 1000,
     rarity: 'uncommon',
     weight: 1,
+    dirtyMoneyOnly: true,
     cityPrices: {
       athens: 0.6,          // production center — cheap
       thessaloniki: 1.2,
@@ -116,6 +117,7 @@ export const contrabandGoods = [
     basePrice: 5000,
     rarity: 'epic',
     weight: 2,
+    dirtyMoneyOnly: true,
     cityPrices: {
       athens: 1.8,          // museums pay top price
       thessaloniki: 1.3,

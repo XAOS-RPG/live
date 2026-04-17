@@ -86,21 +86,22 @@
 
       <!-- ===== ACTION BUTTONS ===== -->
       <div v-if="phase === 'player_turn'" class="actions">
-        <button class="act-btn" @click="act('punch')">
+        <button class="act-btn" :disabled="pStamina < 10" @click="act('punch')">
           <span class="ab-icon">🤜</span><span class="ab-name">Μπουνιά</span><span class="ab-sub">Γρήγορη</span>
         </button>
-        <button class="act-btn" @click="act('kick')">
+        <button class="act-btn" :disabled="pStamina < 10" @click="act('kick')">
           <span class="ab-icon">🦵</span><span class="ab-name">Κλωτσιά</span><span class="ab-sub">Δυνατή</span>
         </button>
-        <button v-if="pWeapon" class="act-btn act-wpn" @click="act('weapon')">
+        <button v-if="pWeapon" class="act-btn act-wpn" :disabled="pStamina < 10" @click="act('weapon')">
           <span class="ab-icon">{{ pWeapon.icon }}</span><span class="ab-name">{{ pWeapon.name }}</span><span class="ab-sub">Όπλο</span>
         </button>
-        <button class="act-btn act-guard" @click="act('guard')">
+        <button class="act-btn act-guard" :disabled="pStamina < 10" @click="act('guard')">
           <span class="ab-icon">🛡️</span><span class="ab-name">Αμυνα</span><span class="ab-sub">-50% ζημιά</span>
         </button>
         <button class="act-btn act-rest" @click="act('rest')">
           <span class="ab-icon">💨</span><span class="ab-name">Ανάσα</span><span class="ab-sub">+{{ STAMINA_REST_REGEN }} Stamina</span>
         </button>
+        <div v-if="pStamina < 10" class="stamina-warning">⚡ Εξαντλήθηκε η Stamina — κάνε Ανάσα!</div>
         <button
           v-for="ab in equippedAbilities"
           :key="ab.id"
@@ -770,6 +771,18 @@ onBeforeUnmount(() => { dead = true; timers.forEach(clearTimeout) })
 .act-ability { border-color: rgba(241,196,15,0.3); }
 .act-ability:hover:not(:disabled) { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
 .act-ability:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.stamina-warning {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: #9b59b6;
+  padding: var(--space-xs);
+  background: rgba(155,89,182,0.1);
+  border-radius: var(--border-radius-md);
+  border: 1px solid rgba(155,89,182,0.3);
+  animation: pulse 1s ease infinite alternate;
+}
 
 .stamina-row { margin-top: 3px; }
 .stamina-fill {

@@ -20,6 +20,27 @@
         Ξεκουράσου... Θα είσαι κομμάτια για λίγο.
       </p>
 
+      <!-- Τηλέφωνο από Ψηλά -->
+      <div class="tilefono-section">
+        <button
+          class="btn btn-primary tilefono-btn"
+          :disabled="player.tilefonoCooldownRemaining > 0 || player.meson < 10"
+          @click="useTilefono"
+        >
+          📞 Τηλέφωνο από Ψηλά
+          <span class="tilefono-cost">(-10 Μέσον)</span>
+        </button>
+        <div v-if="player.tilefonoCooldownRemaining > 0" class="text-muted tilefono-cd">
+          Cooldown: {{ formatCooldown(player.tilefonoCooldownRemaining) }}
+        </div>
+        <div v-else-if="player.meson < 10" class="text-muted tilefono-cd">
+          Χρειάζεσαι 10 Μέσον (έχεις {{ player.meson }})
+        </div>
+        <div v-else class="text-muted tilefono-cd" style="font-size:11px;">
+          Καλεί "από ψηλά" και σε εξάγει από το νοσοκομείο.
+        </div>
+      </div>
+
       <div v-if="medicalItems.length > 0" class="mt-md">
         <h3 class="card-title">Χρήση Ιατρικών</h3>
         <div class="medical-list">
@@ -171,6 +192,17 @@ function doBloodDonation() {
   gameStore.saveGame()
 }
 
+function useTilefono() {
+  player.useTilefonoApsila()
+}
+
+function formatCooldown(ms) {
+  if (ms <= 0) return '—'
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  return h > 0 ? `${h}ω ${m}λ` : `${m}λ`
+}
+
 function formatTime(ms) {
   if (ms <= 0) return '0:00'
   const totalSec = Math.ceil(ms / 1000)
@@ -237,4 +269,9 @@ function formatTime(ms) {
   gap: 2px;
   font-size: var(--font-size-sm);
 }
+
+.tilefono-section { margin-top: var(--space-md); text-align: center; }
+.tilefono-btn { display: inline-flex; align-items: center; gap: 0.5rem; }
+.tilefono-cost { font-size: 0.75rem; opacity: 0.8; }
+.tilefono-cd { font-size: 0.8rem; margin-top: 0.4rem; }
 </style>

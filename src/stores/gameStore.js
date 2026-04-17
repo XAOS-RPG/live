@@ -35,6 +35,8 @@ import { useClassStore } from './classStore'
 import { useBossStore } from './bossStore'
 import { useVolunteerStore } from './volunteerStore'
 import { useEncounterStore } from './encounterStore'
+import { useTerritoryStore } from './territoryStore'
+import { useHeistStore } from './heistStore'
 
 let toastId = 0
 let _saveTimer = null
@@ -150,6 +152,8 @@ export const useGameStore = defineStore('game', {
           class: useClassStore().getSerializable(),
           boss: useBossStore().getSerializable(),
           volunteer: useVolunteerStore().getSerializable(),
+          territory: useTerritoryStore().getSerializable(),
+          heist: useHeistStore().getSerializable(),
         }
       }
     },
@@ -191,6 +195,17 @@ export const useGameStore = defineStore('game', {
         useWeeklyEventStore().checkWeeklyRotation()
         useLoanStore().dailyLoanCheck()
         useFactionStore().tickPantopoleio()
+
+        // Territory Wars: fetch current ownership and subscribe to realtime
+        useTerritoryStore().fetchTerritories().then(() => {
+          useTerritoryStore().subscribeRealtime()
+        })
+
+        // Heist: re-subscribe if player was in an active lobby
+        const heistStore = useHeistStore()
+        if (heistStore.activeLobbyId) {
+          heistStore._subscribeLobby(heistStore.activeLobbyId)
+        }
 
         return true
       } catch (e) {
@@ -235,6 +250,8 @@ export const useGameStore = defineStore('game', {
       if (s.class) useClassStore().hydrate(s.class)
       if (s.boss) useBossStore().hydrate(s.boss)
       if (s.volunteer) useVolunteerStore().hydrate(s.volunteer)
+      if (s.territory) useTerritoryStore().hydrate(s.territory)
+      if (s.heist) useHeistStore().hydrate(s.heist)
     },
 
     async exportSave() {
@@ -268,17 +285,18 @@ export const useGameStore = defineStore('game', {
 
     addNotification(message, type = 'info') {
       const id = ++toastId
-      this.notifications.push({ id, message, type, timestamp: Date.now() })
 
-      // Auto-remove after 3 seconds
-      setTimeout(() => {
-        this.removeNotification(id)
-      }, 3000)
-
-      // Max 5 visible
-      while (this.notifications.length > 5) {
+      // Keep max 2 visible — drop the oldest if needed
+      while (this.notifications.length >= 2) {
         this.notifications.shift()
       }
+
+      this.notifications.push({ id, message, type, timestamp: Date.now() })
+
+      // Auto-remove after 4 seconds
+      setTimeout(() => {
+        this.removeNotification(id)
+      }, 4000)
     },
 
     removeNotification(id) {

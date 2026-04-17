@@ -128,6 +128,12 @@ export const usePvpStore = defineStore('pvp', {
         return { aborted: true, reason: 'Ο παίκτης δεν είναι διαθέσιμος αυτή τη στιγμή.' }
       }
 
+      // Check PvP immunity from Τηλέφωνο από Ψηλά
+      const targetImmunityEnd = freshSd.pvpImmunityEndsAt ?? null
+      if (targetImmunityEnd && targetImmunityEnd > Date.now()) {
+        return { aborted: true, reason: 'Ο παίκτης έχει Ασυλία από Τηλέφωνο από Ψηλά!' }
+      }
+
       const defStats = freshSd.stats ?? target.stats
       const defHP = freshSd.resources?.hp?.current ?? target.hp
       const defCash = freshSd.cash ?? 0

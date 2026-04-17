@@ -5,6 +5,7 @@ import { useGameStore } from './gameStore'
 import { useMissionStore } from './missionStore'
 import { useSmugglingStore } from './smugglingStore'
 import { useCardStore } from './cardStore'
+import { useTerritoryStore } from './territoryStore'
 
 // Cost per minute of train travel (€)
 const COST_PER_MINUTE = 25
@@ -99,6 +100,13 @@ export const useTravelStore = defineStore('travel', {
 
       player.removeCash(cost)
 
+      // Territory Φόρος: 2% tax on travel cost if destination is controlled by a faction
+      const territoryStore = useTerritoryStore()
+      const tax = territoryStore.calculateTaxOnPurchase(destinationId, cost)
+      if (tax > 0) {
+        player.logActivity(`🏛️ Φόρος Εδάφους: €${tax} (${destinationId})`, 'warning')
+      }
+
       player.startActivity({
         type: 'travel',
         id: destinationId,
@@ -130,6 +138,7 @@ export const useTravelStore = defineStore('travel', {
 
       // Police checkpoint for smuggling cargo
       const smuggling = useSmugglingStore()
+      smuggling.checkVehicleOnArrival(destinationId)
       const busted = smuggling.checkPoliceCheckpoint()
       if (busted) return // player is in jail, skip arrival message
 

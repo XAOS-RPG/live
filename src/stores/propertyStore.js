@@ -332,7 +332,8 @@ export const usePropertyStore = defineStore('property', {
       // Apply Πατρικό Σπίτι happiness debuff
       if (this.activeProperty?.id === 'patriko') {
         player.modifyResource('happiness', -10 * elapsedDays)
-        gameStore.addNotification('Η γκρίνια της μάνας σου για το πότε θα βρεις σοβαρή δουλειά σου ρίχνει το κέφι.', 'warning')
+        player.logActivity(`🏠 Γκρίνια μάνας: -${10 * elapsedDays} Κέφι`, 'warning')
+        gameStore.addNotification('Η γκρίνια της μάνας σου για το πότε θα βρεις σοβαρή δουλειά σου ρίχνει το κέφι. (-10 Κέφι)', 'warning')
       }
 
       this.lastRentCheckAt = now

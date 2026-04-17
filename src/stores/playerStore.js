@@ -44,7 +44,7 @@ export const usePlayerStore = defineStore('player', {
 
     abilityPoints: 0,
     unlockedAbilities: {},
-    equippedAbilities: [], // max 2 ability ids
+    equippedAbilities: [], // max 3 ability ids
 
 
     cash: 500,
@@ -76,6 +76,12 @@ export const usePlayerStore = defineStore('player', {
 
     // Blood donation cooldown (ms timestamp of last donation)
     bloodDonationLast: 0,
+
+    // Μέσον ability cooldowns: { tilefonoApsila: timestamp | null }
+    mesonAbilityCooldowns: { tilefonoApsila: null },
+
+    // PvP immunity granted by Τηλέφωνο από Ψηλά (ms timestamp when it ends)
+    pvpImmunityEndsAt: null,
   }),
 
   getters: {
@@ -148,6 +154,28 @@ export const usePlayerStore = defineStore('player', {
     /** Happiness max including equipped card happinessMax buff */
     effectiveHappinessMax() {
       return this.resources.happiness.max + useCardStore().happinessMaxBonus
+    },
+
+    /** 10% Market discount when filotimo >= 100 */
+    highFilotimoDiscount() {
+      return this.filotimo >= 100 ? 0.10 : 0
+    },
+
+    /** Access to Μαυραγορίτης exclusive contracts when filotimo is 0 */
+    hasLowFilotimo() {
+      return this.filotimo === 0
+    },
+
+    /** True while PvP immunity from Τηλέφωνο από Ψηλά is active */
+    isPvpImmune() {
+      return !!(this.pvpImmunityEndsAt && this.pvpImmunityEndsAt > Date.now())
+    },
+
+    /** ms remaining until Τηλέφωνο από Ψηλά can be used again (0 = ready) */
+    tilefonoCooldownRemaining() {
+      const last = this.mesonAbilityCooldowns?.tilefonoApsila
+      if (!last) return 0
+      return Math.max(0, last + 24 * 60 * 60 * 1000 - Date.now())
     },
 
     rankTitle() {
@@ -289,6 +317,57 @@ export const usePlayerStore = defineStore('player', {
       this.meson = Math.min(MESON_MAX, Math.max(0, this.meson + amount))
     },
 
+    /**
+     * Spend Μέσον for an ability. Returns false if not enough.
+     */
+    spendMeson(cost, reason = '') {
+      if (this.meson < cost) return false
+      this.meson -= cost
+      if (reason) this.logActivity(`📞 Μέσον -${cost}${reason ? ': ' + reason : ''}`, 'info')
+      return true
+    },
+
+    /**
+     * Spend Φιλότιμο explicitly (for future spendable filotimo mechanics).
+     */
+    spendFilotimo(amount, reason = '') {
+      if (amount <= 0 || this.filotimo < amount) return false
+      this.addFilotimoRaw(-amount)
+      if (reason) this.logActivity(`🏛️ Φιλότιμο -${amount}: ${reason}`, 'info')
+      return true
+    },
+
+    /**
+     * Τηλέφωνο από Ψηλά — spend 10 Μέσον to:
+     *   A) Clear hospital status (if in hospital)
+     *   B) Grant 10-minute PvP immunity (if free)
+     * Cooldown: 24 hours.
+     */
+    useTilefonoApsila() {
+      if (this.tilefonoCooldownRemaining > 0) {
+        return { success: false, reason: 'cooldown' }
+      }
+      if (!this.spendMeson(10, 'Τηλέφωνο από Ψηλά')) {
+        return { success: false, reason: 'no_meson' }
+      }
+      this.mesonAbilityCooldowns.tilefonoApsila = Date.now()
+
+      if (this.status === 'hospital') {
+        this.clearStatus()
+        this.resources.hp.current = Math.max(1, Math.floor(this.resources.hp.max * 0.5))
+        this.logActivity('📞 Τηλέφωνο από Ψηλά — εξήλθες από το Νοσοκομείο!', 'success')
+        useGameStore().addNotification('Ελευθερώθηκες από το Νοσοκομείο!', 'success')
+        useGameStore().saveGame({ immediate: true })
+        return { success: true, effect: 'hospital_cleared' }
+      }
+
+      this.pvpImmunityEndsAt = Date.now() + 10 * 60 * 1000
+      this.logActivity('📞 Τηλέφωνο από Ψηλά — 10λεπτη Ασυλία από PvP!', 'success')
+      useGameStore().addNotification('Έχεις 10 λεπτά Ασυλία από PvP επιθέσεις!', 'success')
+      useGameStore().saveGame({ immediate: true })
+      return { success: true, effect: 'pvp_immunity' }
+    },
+
     addCrimeXP(amount) {
       this.crimeXP += amount
     },
@@ -401,6 +480,11 @@ export const usePlayerStore = defineStore('player', {
         }
       }
 
+      // Clear expired PvP immunity
+      if (this.pvpImmunityEndsAt && Date.now() >= this.pvpImmunityEndsAt) {
+        this.pvpImmunityEndsAt = null
+      }
+
       this.lastTick = Date.now()
     },
 
@@ -437,6 +521,8 @@ export const usePlayerStore = defineStore('player', {
         activityLog: [...this.activityLog],
         medicalBadge: this.medicalBadge ? { ...this.medicalBadge } : null,
         bloodDonationLast: this.bloodDonationLast,
+        mesonAbilityCooldowns: { ...this.mesonAbilityCooldowns },
+        pvpImmunityEndsAt: this.pvpImmunityEndsAt,
       }
     },
 
@@ -456,6 +542,8 @@ export const usePlayerStore = defineStore('player', {
           Object.assign(this.regenAccumulators, data.regenAccumulators)
         } else if (key === 'medicalBadge') {
           this.medicalBadge = data.medicalBadge || null
+        } else if (key === 'mesonAbilityCooldowns') {
+          Object.assign(this.mesonAbilityCooldowns, data.mesonAbilityCooldowns || {})
         } else if (this.$state.hasOwnProperty(key)) {
           this[key] = data[key]
         }

@@ -1,65 +1,119 @@
 <template>
-  <div class="mastery-view">
+  <div class="mastery-page">
+
+    <!-- Header -->
     <div class="mastery-header">
-      <h2>🌳 Δέντρο Ικανοτήτων — Βία</h2>
-      <div class="points-badge">
-        <span>Διαθέσιμοι Πόντοι:</span>
-        <strong>{{ player.abilityPoints }}</strong>
+      <div>
+        <h2 class="mastery-title">🌳 Δέντρο Ικανοτήτων</h2>
+        <p class="mastery-sub text-muted">Ξόδεψε Ability Points για να ξεκλειδώσεις ικανότητες</p>
+      </div>
+      <div class="points-pill">
+        <span class="points-icon">⭐</span>
+        <span class="points-num">{{ player.abilityPoints }}</span>
+        <span class="points-lbl">pts</span>
       </div>
     </div>
 
-    <div class="equipped-bar">
-      <span class="eq-label">Εξοπλισμένες ({{ player.equippedAbilities.length }}/2):</span>
-      <span v-for="id in player.equippedAbilities" :key="id" class="eq-chip">
-        {{ abilityById(id)?.icon }} {{ abilityById(id)?.name }}
-        <button class="eq-remove" @click="unequip(id)">✕</button>
-      </span>
-      <span v-if="player.equippedAbilities.length === 0" class="eq-empty">Καμία</span>
-    </div>
-
-    <div class="tree-grid">
-      <div v-for="col in columns" :key="col.id" class="tree-column">
-        <div class="col-header">{{ col.icon }} {{ col.label }}</div>
-        <div class="nodes">
-          <div
-            v-for="node in col.nodes"
-            :key="node.id"
-            class="node"
-            :class="{
-              unlocked: isUnlocked(node.id),
-              available: canUnlock(node),
-              locked: !isUnlocked(node.id) && !canUnlock(node),
-              equipped: isEquipped(node.id),
-            }"
-          >
-            <span class="node-icon">{{ node.icon }}</span>
-            <span class="node-name">{{ node.name }}</span>
-            <span class="node-desc">{{ node.desc }}</span>
-
-            <template v-if="isUnlocked(node.id)">
-              <button
-                v-if="node.active"
-                class="equip-btn"
-                :class="isEquipped(node.id) ? 'equip-btn-on' : 'equip-btn-off'"
-                @click="toggleEquip(node.id)"
-              >
-                {{ isEquipped(node.id) ? '⚔️ Εξοπλισμένο' : '+ Εξόπλισε' }}
-              </button>
-              <span v-else class="node-status">✅ Παθητικό</span>
-            </template>
-            <button v-else-if="canUnlock(node)" class="unlock-btn" @click="unlock(node)">🔓 1pt</button>
-            <span v-else class="node-status locked-icon">🔒</span>
-          </div>
+    <!-- Equipped slots -->
+    <div class="equipped-section">
+      <div class="equipped-label">Εξοπλισμένες ικανότητες ({{ player.equippedAbilities.length }}/3)</div>
+      <div class="equipped-slots">
+        <div
+          v-for="i in 3"
+          :key="i"
+          class="eq-slot"
+          :class="{ filled: player.equippedAbilities[i-1] }"
+        >
+          <template v-if="player.equippedAbilities[i-1]">
+            <span class="eq-slot-icon">{{ abilityById(player.equippedAbilities[i-1])?.icon }}</span>
+            <span class="eq-slot-name">{{ abilityById(player.equippedAbilities[i-1])?.name }}</span>
+            <button class="eq-remove" @click="unequip(player.equippedAbilities[i-1])">✕</button>
+          </template>
+          <span v-else class="eq-empty-label">Κενό</span>
         </div>
       </div>
     </div>
+
+    <!-- Skill tree -->
+    <div class="tree-wrapper">
+      <div v-for="col in columns" :key="col.id" class="tree-branch">
+
+        <!-- Branch header -->
+        <div class="branch-header" :class="'branch-' + col.id">
+          <span class="branch-icon">{{ col.icon }}</span>
+          <span class="branch-label">{{ col.label }}</span>
+        </div>
+
+        <!-- Nodes with connectors -->
+        <div class="branch-nodes">
+          <template v-for="(node, idx) in col.nodes" :key="node.id">
+
+            <!-- Connector line between nodes -->
+            <div
+              v-if="idx > 0"
+              class="connector"
+              :class="{
+                'connector-active': isUnlocked(col.nodes[idx-1].id),
+                'connector-locked': !isUnlocked(col.nodes[idx-1].id),
+              }"
+            ></div>
+
+            <!-- Node card -->
+            <div
+              class="node-card"
+              :class="{
+                'node-unlocked': isUnlocked(node.id),
+                'node-available': canUnlock(node),
+                'node-locked': !isUnlocked(node.id) && !canUnlock(node),
+                'node-equipped': isEquipped(node.id),
+              }"
+              @click="handleNodeClick(node)"
+            >
+              <div class="node-top">
+                <span class="node-icon">{{ node.icon }}</span>
+                <div class="node-badges">
+                  <span class="node-type-badge" :class="node.active ? 'badge-active' : 'badge-passive'">
+                    {{ node.active ? 'Ενεργό' : 'Παθητικό' }}
+                  </span>
+                  <span v-if="isEquipped(node.id)" class="node-type-badge badge-equipped">⚔️ Εξοπλ.</span>
+                </div>
+              </div>
+              <div class="node-name">{{ node.name }}</div>
+              <div class="node-desc">{{ node.desc }}</div>
+
+              <div class="node-action">
+                <template v-if="isUnlocked(node.id)">
+                  <button
+                    v-if="node.active"
+                    class="node-btn"
+                    :class="isEquipped(node.id) ? 'btn-unequip' : 'btn-equip'"
+                    @click.stop="toggleEquip(node.id)"
+                  >
+                    {{ isEquipped(node.id) ? '− Αφαίρεση' : '+ Εξόπλισε' }}
+                  </button>
+                  <span v-else class="node-passive-label">✅ Ενεργό</span>
+                </template>
+                <button v-else-if="canUnlock(node)" class="node-btn btn-unlock" @click.stop="unlock(node)">
+                  🔓 Ξεκλείδωσε (1pt)
+                </button>
+                <span v-else class="node-locked-label">🔒 Κλειδωμένο</span>
+              </div>
+            </div>
+
+          </template>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
 import { usePlayerStore } from '../stores/playerStore'
+import { useGameStore } from '../stores/gameStore'
 
 const player = usePlayerStore()
+const game = useGameStore()
 
 const columns = [
   {
@@ -67,9 +121,9 @@ const columns = [
     label: 'Βία',
     icon: '⚔️',
     nodes: [
-      { id: 'vape',        tier: 0, requires: null,      active: true,  icon: '💨', name: 'Vape',              desc: 'Κοστίζει 5 Stamina · Θεραπεύει 20% μέγ. HP' },
-      { id: 'ftysimo',     tier: 1, requires: 'vape',    active: true,  icon: '🫦', name: 'Φτύσιμο',           desc: 'Κοστίζει 2 Stamina · Δηλητηριάζει τον αντίπαλο (5 ζημιά/γύρο × 3)' },
-      { id: 'berserker',   tier: 2, requires: 'ftysimo', active: false, icon: '🔥', name: 'Μανία',             desc: 'Παθητικό · +15% ζημιά όταν HP < 30%' },
+      { id: 'vape',      tier: 0, requires: null,      active: true,  icon: '💨', name: 'Vape',           desc: 'Κοστίζει 5 Stamina · Θεραπεύει 20% μέγ. HP' },
+      { id: 'ftysimo',   tier: 1, requires: 'vape',    active: true,  icon: '🫦', name: 'Φτύσιμο',        desc: 'Κοστίζει 2 Stamina · Δηλητηριάζει (5 ζημιά/γύρο × 3)' },
+      { id: 'berserker', tier: 2, requires: 'ftysimo', active: false, icon: '🔥', name: 'Μανία',          desc: 'Παθητικό · +15% ζημιά όταν HP < 30%' },
     ],
   },
   {
@@ -77,9 +131,9 @@ const columns = [
     label: 'Αντοχή',
     icon: '🛡️',
     nodes: [
-      { id: 'kolodaktylo', tier: 0, requires: null,            active: true,  icon: '🖕', name: 'Κωλοδάχτυλο',    desc: 'Κοστίζει 8 Stamina · Μειώνει άμυνα αντιπάλου κατά 15%' },
-      { id: 'klotsia',     tier: 1, requires: 'kolodaktylo',   active: true,  icon: '🦵', name: 'Κλωτσιά στα @@', desc: 'Κοστίζει 80% μέγ. Stamina · Τεράστια ζημιά + Stun (παράλειψη γύρου)' },
-      { id: 'iron_will',   tier: 2, requires: 'klotsia',       active: false, icon: '⚙️', name: 'Σιδερένια Θέληση', desc: 'Παθητικό · Επιβιώνεις με 1 HP μία φορά ανά μάχη' },
+      { id: 'kolodaktylo', tier: 0, requires: null,          active: true,  icon: '🖕', name: 'Κωλοδάχτυλο',   desc: 'Κοστίζει 8 Stamina · Μειώνει άμυνα αντιπάλου −15%' },
+      { id: 'klotsia',     tier: 1, requires: 'kolodaktylo', active: true,  icon: '🦵', name: 'Κλωτσιά',       desc: 'Κοστίζει 80% Stamina · Τεράστια ζημιά + Stun' },
+      { id: 'iron_will',   tier: 2, requires: 'klotsia',     active: false, icon: '⚙️', name: 'Σιδερένια Θέληση', desc: 'Παθητικό · Επιβιώνεις με 1 HP μία φορά ανά μάχη' },
     ],
   },
   {
@@ -87,19 +141,18 @@ const columns = [
     label: 'Πονηριά',
     icon: '🃏',
     nodes: [
-      { id: 'second_wind', tier: 0, requires: null,           active: false, icon: '💨', name: 'Δεύτερη Ανάσα', desc: 'Παθητικό · Ανάσα αναπληρώνει +10 επιπλέον Stamina' },
-      { id: 'pickpocket',  tier: 1, requires: 'second_wind',  active: false, icon: '🤏', name: 'Τσιμπολόγος',   desc: 'Παθητικό · +10% χρήματα από νίκες' },
-      { id: 'ghost',       tier: 2, requires: 'pickpocket',   active: false, icon: '👻', name: 'Φάντασμα',      desc: 'Παθητικό · +5% αποφυγή χτυπημάτων' },
+      { id: 'second_wind', tier: 0, requires: null,          active: false, icon: '💨', name: 'Δεύτερη Ανάσα', desc: 'Παθητικό · Ανάσα αναπληρώνει +10 επιπλέον Stamina' },
+      { id: 'pickpocket',  tier: 1, requires: 'second_wind', active: false, icon: '🤏', name: 'Τσιμπολόγος',  desc: 'Παθητικό · +10% χρήματα από νίκες' },
+      { id: 'ghost',       tier: 2, requires: 'pickpocket',  active: false, icon: '👻', name: 'Φάντασμα',     desc: 'Παθητικό · +5% αποφυγή χτυπημάτων' },
     ],
   },
 ]
 
-// Flat map for quick lookup
 const allNodes = columns.flatMap(c => c.nodes)
 const abilityById = (id) => allNodes.find(n => n.id === id)
 
 const isUnlocked = (id) => !!player.unlockedAbilities[id]
-const isEquipped = (id) => player.equippedAbilities.includes(id)
+const isEquipped  = (id) => player.equippedAbilities.includes(id)
 
 const canUnlock = (node) => {
   if (isUnlocked(node.id)) return false
@@ -108,162 +161,248 @@ const canUnlock = (node) => {
   return true
 }
 
-const unlock = (node) => {
+function unlock(node) {
   if (!canUnlock(node)) return
   player.unlockedAbilities[node.id] = true
   player.abilityPoints--
+  game.addNotification(`${node.icon} ${node.name} ξεκλειδώθηκε!`, 'success')
 }
 
-const toggleEquip = (id) => {
+function toggleEquip(id) {
   if (isEquipped(id)) {
     player.equippedAbilities = player.equippedAbilities.filter(x => x !== id)
   } else {
-    if (player.equippedAbilities.length >= 2) return
+    if (player.equippedAbilities.length >= 3) {
+      game.addNotification('Μπορείς να εξοπλίσεις έως 3 ικανότητες!', 'warning')
+      return
+    }
     player.equippedAbilities = [...player.equippedAbilities, id]
   }
 }
 
-const unequip = (id) => {
+function unequip(id) {
   player.equippedAbilities = player.equippedAbilities.filter(x => x !== id)
+}
+
+function handleNodeClick(node) {
+  if (isUnlocked(node.id) && node.active) toggleEquip(node.id)
+  else if (canUnlock(node)) unlock(node)
 }
 </script>
 
 <style scoped>
-.mastery-view {
-  padding: var(--space-lg);
-  max-width: 900px;
+.mastery-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  max-width: 960px;
   margin: 0 auto;
 }
 
+/* ── Header ── */
 .mastery-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: var(--space-md);
+  gap: var(--space-md);
   flex-wrap: wrap;
-  gap: var(--space-sm);
 }
+.mastery-title { margin: 0; font-size: var(--font-size-xl); }
+.mastery-sub   { margin: 4px 0 0; font-size: var(--font-size-xs); }
 
-.mastery-header h2 { margin: 0; font-size: var(--font-size-lg); }
-
-.points-badge {
+.points-pill {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  background: var(--bg-surface-raised);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--border-radius-md);
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(241,196,15,0.15), rgba(241,196,15,0.05));
+  border: 1px solid rgba(241,196,15,0.5);
+  border-radius: var(--border-radius-full);
   padding: var(--space-xs) var(--space-md);
-  font-size: var(--font-size-sm);
+  flex-shrink: 0;
 }
-.points-badge strong { color: var(--color-accent); font-size: var(--font-size-lg); }
+.points-icon { font-size: 1.1rem; }
+.points-num  { font-size: var(--font-size-xl); font-weight: 900; color: #f1c40f; font-family: var(--font-family-mono); }
+.points-lbl  { font-size: var(--font-size-xs); color: var(--text-secondary); }
 
-.equipped-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
+/* ── Equipped slots ── */
+.equipped-section {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-md);
-  margin-bottom: var(--space-lg);
-  font-size: var(--font-size-sm);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-md);
 }
-.eq-label { color: var(--text-secondary); margin-right: var(--space-xs); }
-.eq-chip {
+.equipped-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-sm);
+}
+.equipped-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+}
+.eq-slot {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(79,195,247,0.12);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--border-radius-full);
-  padding: 2px 10px;
-  font-size: var(--font-size-xs);
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--border-radius-md);
+  border: 1px dashed var(--border-color);
+  background: var(--bg-base);
+  min-height: 44px;
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-fast);
 }
+.eq-slot.filled {
+  border-style: solid;
+  border-color: rgba(241,196,15,0.4);
+  background: rgba(241,196,15,0.06);
+}
+.eq-slot-icon { font-size: 1.2rem; flex-shrink: 0; }
+.eq-slot-name { flex: 1; font-weight: var(--font-weight-bold); font-size: var(--font-size-xs); min-width: 0; }
 .eq-remove {
   background: none; border: none; cursor: pointer;
-  color: var(--text-secondary); font-size: 10px; padding: 0 2px;
+  color: var(--text-secondary); font-size: 11px; padding: 2px 4px;
+  border-radius: 4px; flex-shrink: 0;
 }
-.eq-remove:hover { color: var(--color-danger); }
-.eq-empty { color: var(--text-secondary); font-style: italic; }
+.eq-remove:hover { color: var(--color-danger); background: rgba(231,76,60,0.1); }
+.eq-empty-label { color: var(--text-secondary); font-size: var(--font-size-xs); font-style: italic; margin: auto; }
 
-.tree-grid {
+/* ── Tree ── */
+.tree-wrapper {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
 }
-@media (max-width: 600px) { .tree-grid { grid-template-columns: 1fr; } }
-
-.tree-column { display: flex; flex-direction: column; gap: var(--space-sm); }
-
-.col-header {
-  text-align: center;
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-md);
-  padding: var(--space-sm);
-  background: var(--bg-surface-raised);
-  border-radius: var(--border-radius-md);
-  border-bottom: 2px solid var(--color-accent);
+@media (max-width: 640px) {
+  .tree-wrapper { grid-template-columns: 1fr; }
+  .equipped-slots { grid-template-columns: 1fr; }
 }
 
-.nodes { display: flex; flex-direction: column; gap: var(--space-sm); }
+.tree-branch { display: flex; flex-direction: column; gap: 0; }
 
-.node {
+.branch-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.04em;
+}
+.branch-offense { background: linear-gradient(135deg, rgba(231,76,60,0.2), rgba(231,76,60,0.05)); border: 1px solid rgba(231,76,60,0.3); border-bottom: none; }
+.branch-defense  { background: linear-gradient(135deg, rgba(52,152,219,0.2), rgba(52,152,219,0.05)); border: 1px solid rgba(52,152,219,0.3); border-bottom: none; }
+.branch-utility  { background: linear-gradient(135deg, rgba(155,89,182,0.2), rgba(155,89,182,0.05)); border: 1px solid rgba(155,89,182,0.3); border-bottom: none; }
+.branch-icon { font-size: 1.2rem; }
+
+.branch-nodes {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: var(--space-md);
-  border-radius: var(--border-radius-md);
   border: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+  overflow: hidden;
+}
+
+/* Connector between tiers */
+.connector {
+  height: 24px;
+  width: 2px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.connector::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+.connector-active::before  { background: linear-gradient(180deg, rgba(46,204,113,0.6), rgba(46,204,113,0.2)); }
+.connector-locked::before  { background: linear-gradient(180deg, rgba(127,140,141,0.3), rgba(127,140,141,0.1)); border-left: 2px dashed rgba(127,140,141,0.3); }
+
+/* Node card */
+.node-card {
+  padding: var(--space-md);
   background: var(--bg-surface);
-  text-align: center;
-  transition: all var(--transition-fast);
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.node.available { border-color: var(--color-accent); background: rgba(79,195,247,0.05); }
-.node.unlocked  { border-color: var(--color-success, #4caf50); background: rgba(76,175,80,0.08); }
-.node.equipped  { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
-.node.locked    { opacity: 0.45; }
+.node-card:last-child { border-bottom: none; }
+.node-card:hover:not(.node-locked) { background: var(--bg-surface-raised); }
 
-.node-icon { font-size: 28px; line-height: 1; }
+.node-card.node-available { background: rgba(79,195,247,0.04); }
+.node-card.node-available:hover { background: rgba(79,195,247,0.09); }
+.node-card.node-unlocked  { background: rgba(46,204,113,0.05); }
+.node-card.node-equipped  { background: rgba(241,196,15,0.07); }
+.node-card.node-locked    { opacity: 0.45; cursor: default; }
+
+.node-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+.node-icon { font-size: 1.6rem; line-height: 1; }
+.node-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.node-type-badge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: var(--border-radius-full);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge-active   { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+.badge-passive  { background: rgba(52,152,219,0.15); color: #3498db; border: 1px solid rgba(52,152,219,0.3); }
+.badge-equipped { background: rgba(241,196,15,0.2); color: #f1c40f; border: 1px solid rgba(241,196,15,0.4); }
+
 .node-name { font-weight: var(--font-weight-bold); font-size: var(--font-size-sm); }
-.node-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.3; }
-.node-status { font-size: 11px; margin-top: 2px; }
-.locked-icon { opacity: 0.6; }
+.node-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
 
-.unlock-btn {
-  margin-top: 4px;
-  padding: 3px 10px;
-  font-size: 11px;
-  background: rgba(79,195,247,0.1);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--border-radius-full);
-  color: var(--color-accent);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-.unlock-btn:hover { background: rgba(79,195,247,0.22); }
+.node-action { margin-top: 4px; }
 
-.equip-btn {
-  margin-top: 4px;
-  padding: 3px 10px;
+.node-btn {
+  width: 100%;
+  padding: 5px 10px;
   font-size: 11px;
-  border-radius: var(--border-radius-full);
+  border-radius: var(--border-radius-md);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  font-weight: var(--font-weight-bold);
+  transition: all var(--transition-fast);
   border: 1px solid;
 }
-.equip-btn-off {
-  background: rgba(76,175,80,0.1);
-  border-color: var(--color-success, #4caf50);
-  color: var(--color-success, #4caf50);
+.btn-unlock {
+  background: rgba(79,195,247,0.1);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
-.equip-btn-off:hover { background: rgba(76,175,80,0.22); }
-.equip-btn-on {
-  background: rgba(241,196,15,0.15);
+.btn-unlock:hover { background: rgba(79,195,247,0.2); }
+.btn-equip {
+  background: rgba(46,204,113,0.1);
+  border-color: #2ecc71;
+  color: #2ecc71;
+}
+.btn-equip:hover { background: rgba(46,204,113,0.2); }
+.btn-unequip {
+  background: rgba(241,196,15,0.1);
   border-color: #f1c40f;
   color: #f1c40f;
 }
-.equip-btn-on:hover { background: rgba(241,196,15,0.28); }
+.btn-unequip:hover { background: rgba(241,196,15,0.2); }
+
+.node-passive-label { font-size: 11px; color: #2ecc71; }
+.node-locked-label  { font-size: 11px; color: var(--text-secondary); }
 </style>

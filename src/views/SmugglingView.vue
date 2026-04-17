@@ -20,9 +20,62 @@
       </button>
     </div>
 
+    <!-- Vehicles -->
+    <div class="card">
+      <h3 class="section-title">🚗 Μεταφορικά Μέσα</h3>
+      <div class="vehicle-equipped">
+        <span class="ve-icon">{{ smuggling.equippedVehicleData.icon }}</span>
+        <div class="ve-info">
+          <strong>{{ smuggling.equippedVehicleData.name }}</strong>
+          <span class="text-muted" style="font-size:11px;">
+            Αποφυγή: {{ (smuggling.equippedVehicleData.avoidance * 100).toFixed(0) }}%
+            · Slots: {{ smuggling.effectiveMaxCargoSlots }}
+          </span>
+        </div>
+      </div>
+      <div class="vehicle-list">
+        <div
+          v-for="vehicle in VEHICLES"
+          :key="vehicle.id"
+          class="vehicle-row"
+          :class="{ equipped: smuggling.equippedVehicle === vehicle.id, locked: !smuggling.ownedVehicles.includes(vehicle.id) }"
+        >
+          <span class="vr-icon">{{ vehicle.icon }}</span>
+          <div class="vr-info">
+            <strong>{{ vehicle.name }}</strong>
+            <span class="text-muted" style="font-size:10px;">
+              {{ vehicle.description }}
+            </span>
+            <div class="vr-stats">
+              <span>Αποφυγή {{ (vehicle.avoidance * 100).toFixed(0) }}%</span>
+              <span>+{{ vehicle.cargoBonus }} slots</span>
+              <span v-if="vehicle.seaOnly" class="badge badge-info">Νησιά Μόνο</span>
+            </div>
+          </div>
+          <div class="vr-actions">
+            <span v-if="smuggling.equippedVehicle === vehicle.id" class="badge badge-success">Εξοπλισμένο</span>
+            <button
+              v-else-if="smuggling.ownedVehicles.includes(vehicle.id)"
+              class="btn btn-xs btn-outline"
+              @click="smuggling.equipVehicle(vehicle.id)"
+            >Εξόπλισε</button>
+            <button
+              v-else-if="player.level >= vehicle.unlockLevel"
+              class="btn btn-xs btn-primary"
+              :disabled="player.cash < vehicle.price"
+              @click="smuggling.buyVehicle(vehicle.id)"
+            >
+              €{{ vehicle.price.toLocaleString() }}
+            </button>
+            <span v-else class="text-muted" style="font-size:11px;">Lvl {{ vehicle.unlockLevel }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Cargo -->
     <div class="card">
-      <h3 class="section-title">📦 Το Φορτίο σου ({{ smuggling.cargoWeight }}/{{ smuggling.maxCargoSlots }} slots)</h3>
+      <h3 class="section-title">📦 Το Φορτίο σου ({{ smuggling.cargoWeight }}/{{ smuggling.effectiveMaxCargoSlots }} slots)</h3>
       <div v-if="!smuggling.hasCargo" class="text-muted text-center" style="padding: var(--space-md);">
         Δεν κουβαλάς τίποτα. Αγόρασε εμπόρευμα παρακάτω.
       </div>
@@ -125,6 +178,7 @@ import { useSmugglingStore } from '../stores/smugglingStore'
 import { useTravelStore } from '../stores/travelStore'
 import { contrabandGoods, getContrabandPrice } from '../data/contraband'
 import { locations } from '../data/locations'
+import { VEHICLES } from '../data/vehicles'
 
 const player = usePlayerStore()
 const smuggling = useSmugglingStore()
@@ -292,6 +346,38 @@ function priceClass(good, cityId) {
 
 .price-high { color: var(--color-success); font-weight: var(--font-weight-bold); }
 .price-low { color: var(--color-danger); }
+
+/* Vehicles */
+.vehicle-equipped {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: var(--bg-surface-raised);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+.ve-icon { font-size: 1.75rem; }
+.ve-info { display: flex; flex-direction: column; gap: 2px; }
+
+.vehicle-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.vehicle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  opacity: 0.7;
+}
+.vehicle-row.equipped { border-color: #4CAF50; opacity: 1; }
+.vehicle-row.locked { opacity: 0.4; }
+
+.vr-icon { font-size: 1.5rem; }
+.vr-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.vr-stats { display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-muted); }
+.vr-actions { display: flex; align-items: center; }
 
 .stat-row {
   display: flex;

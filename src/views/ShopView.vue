@@ -116,6 +116,26 @@
           Δεν υπάρχουν διαθέσιμα αντικείμενα.
         </div>
       </div>
+
+      <!-- Μαυραγορίτης — exclusive section for players with 0 Filotimo -->
+      <div v-if="player.hasLowFilotimo" class="card mavragoritis-section">
+        <h3 class="mavra-title">🖤 Μαυραγορίτης — Αποκλειστικές Συμβάσεις</h3>
+        <p class="text-muted mavra-desc">
+          Η πιο σκοτεινή αγορά. Διαθέσιμη μόνο σε όσους έχουν κατρακυλήσει στο μηδέν Φιλότιμο.
+        </p>
+        <div v-for="contract in mavragoritis" :key="contract.id" class="card mavra-card">
+          <div class="mavra-row">
+            <span class="mavra-icon">{{ contract.icon }}</span>
+            <div class="mavra-info">
+              <strong>{{ contract.name }}</strong>
+              <p class="text-muted" style="font-size:0.8rem">{{ contract.description }}</p>
+            </div>
+            <div class="mavra-reward">
+              <span class="text-danger" style="font-size:0.85rem">{{ contract.reward }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
 
   </div>
@@ -126,6 +146,12 @@ import { ref, computed } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useInventoryStore } from '../stores/inventoryStore'
 import { getBuyableItems } from '../data/items'
+
+const mavragoritis = [
+  { id: 'mv1', icon: '💰', name: 'Φακελάκι Δικαστή', description: 'Κανόνισε μια εκκρεμή υπόθεση να εξαφανιστεί.', reward: '+50 Μέσον' },
+  { id: 'mv2', icon: '🔫', name: 'Αντιπερισπασμός', description: 'Στείλε κάποιον στο νοσοκομείο — χωρίς ίχνη.', reward: '+100 Μέσον' },
+  { id: 'mv3', icon: '🏦', name: 'Ξέπλυμα Δικτύου', description: 'Βαρέλια με Βρώμικα χρήματα που πρέπει να εξαφανιστούν.', reward: '+200 Μέσον' },
+]
 
 const player = usePlayerStore()
 const inventory = useInventoryStore()
@@ -344,4 +370,14 @@ function buy(item) {
   border-radius: var(--border-radius-sm);
   font-size: 10px;
 }
+
+/* Μαυραγορίτης */
+.mavragoritis-section { border-left: 4px solid #1a1a1a; background: rgba(0,0,0,0.3); margin-top: 1rem; }
+.mavra-title { font-size: 0.95rem; margin-bottom: 0.5rem; color: #ccc; }
+.mavra-desc { font-size: 0.8rem; margin-bottom: 1rem; }
+.mavra-card { background: rgba(0,0,0,0.4); margin-bottom: 0.5rem; }
+.mavra-row { display: flex; align-items: center; gap: 0.75rem; }
+.mavra-icon { font-size: 1.5rem; }
+.mavra-info { flex: 1; }
+.mavra-reward { white-space: nowrap; }
 </style>

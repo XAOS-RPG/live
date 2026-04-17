@@ -4,6 +4,8 @@ import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useWeeklyEventStore } from './weeklyEventStore'
 import { usePetStore } from './petStore'
+import { useTerritoryStore } from './territoryStore'
+import { useTravelStore } from './travelStore'
 
 export const useInventoryStore = defineStore('inventory', {
   state: () => ({
@@ -197,7 +199,10 @@ export const useInventoryStore = defineStore('inventory', {
       const player = usePlayerStore()
       const gameStore = useGameStore()
       const weeklyEvent = useWeeklyEventStore()
-      const total = Math.floor(item.buyPrice * quantity * weeklyEvent.shopPriceMultiplier)
+
+      // Filotimo 10% discount at Μαρκετ when filotimo >= 100
+      const filotimoDiscount = player.highFilotimoDiscount
+      const total = Math.floor(item.buyPrice * quantity * weeklyEvent.shopPriceMultiplier * (1 - filotimoDiscount))
 
       if (player.cash < total) {
         gameStore.addNotification('Δεν έχεις αρκετά χρήματα!', 'danger')
@@ -211,7 +216,16 @@ export const useInventoryStore = defineStore('inventory', {
       }
 
       player.removeCash(total)
-      gameStore.addNotification(`Αγόρασες ${item.name} x${quantity}`, 'success')
+
+      // Territory Φόρος: 2% tax on market purchase in controlled city
+      const cityId = useTravelStore().currentLocation
+      const tax = useTerritoryStore().calculateTaxOnPurchase(cityId, total)
+      if (tax > 0) {
+        player.logActivity(`🏛️ Φόρος Αγοράς: €${tax}`, 'warning')
+      }
+
+      const discountNote = filotimoDiscount > 0 ? ` (-${Math.round(filotimoDiscount * 100)}% Φιλότιμο)` : ''
+      gameStore.addNotification(`Αγόρασες ${item.name} x${quantity}${discountNote}`, 'success')
       gameStore.saveGame()
       return true
     },

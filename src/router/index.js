@@ -141,6 +141,12 @@ const routes = [
     meta: { allowIncapacitated: true }
   },
   {
+    path: '/tv-games',
+    name: 'tv-games',
+    component: () => import('../views/TvGamesView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
     path: '/forums',
     name: 'forums',
     component: () => import('../views/ForumsView.vue'),
@@ -248,9 +254,7 @@ const routes = [
   },
   {
     path: '/auction',
-    name: 'auction',
-    component: () => import('../views/AuctionHouseView.vue'),
-    meta: { allowIncapacitated: true }
+    redirect: '/bazaar',
   },
   {
     path: '/black-market',
@@ -269,6 +273,18 @@ const routes = [
     name: 'volunteering',
     component: () => import('../views/Volunteering.vue'),
     meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/territory',
+    name: 'territory',
+    component: () => import('../views/TerritoryView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
+    path: '/heist',
+    name: 'heist',
+    component: () => import('../views/HeistView.vue'),
+    meta: { allowIncapacitated: false }
   }
 ]
 
