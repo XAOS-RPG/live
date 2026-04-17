@@ -248,9 +248,7 @@ const routes = [
   },
   {
     path: '/faction-fortress',
-    name: 'faction-fortress',
-    component: () => import('../views/FactionFortressView.vue'),
-    meta: { allowIncapacitated: true }
+    redirect: '/faction',
   },
   {
     path: '/auction',
@@ -258,15 +256,11 @@ const routes = [
   },
   {
     path: '/black-market',
-    name: 'black-market',
-    component: () => import('../views/BlackMarketView.vue'),
-    meta: { allowIncapacitated: true }
+    redirect: '/smuggling',
   },
   {
     path: '/world-boss',
-    name: 'world-boss',
-    component: () => import('../views/WorldBossView.vue'),
-    meta: { allowIncapacitated: false }
+    redirect: '/heist',
   },
   {
     path: '/volunteering',

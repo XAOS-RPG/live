@@ -1,7 +1,20 @@
 <template>
   <div class="heist-page">
-    <h2 class="page-title">🔫 Ομαδικά Ριφιφί</h2>
-    <p class="text-muted page-subtitle">Σχημάτισε Συμμορία, διαλέξτε στόχο και ρίξτε τα ζάρια μαζί για τεράστια Βρώμικα Χρήματα!</p>
+    <h2 class="page-title">🔫 Ριφιφί</h2>
+
+    <!-- Top-level tabs -->
+    <div class="tab-bar" style="margin-bottom: 1rem">
+      <button :class="['tab-btn', mainTab === 'team' ? 'active' : '']" @click="mainTab = 'team'">🔫 Ομαδικό Ριφιφί</button>
+      <button :class="['tab-btn', mainTab === 'boss' ? 'active' : '']" @click="mainTab = 'boss'">🏦 World Boss</button>
+    </div>
+
+    <!-- ===== WORLD BOSS TAB ===== -->
+    <template v-if="mainTab === 'boss'">
+      <WorldBoss />
+    </template>
+
+    <!-- ===== TEAM HEIST TAB ===== -->
+    <template v-else>
 
     <!-- Active lobby -->
     <template v-if="heistStore.isInLobby && heistStore.lobby">
@@ -160,6 +173,8 @@
         </div>
       </div>
     </template>
+    <!-- end team heist -->
+    </template>
   </div>
 </template>
 
@@ -168,9 +183,11 @@ import { ref, computed } from 'vue'
 import { useHeistStore } from '../stores/heistStore'
 import { HEIST_TARGETS, HEIST_ROLES, getHeistTargetById } from '../data/heists'
 import { usePlayerStore } from '../stores/playerStore'
+import WorldBoss from '../components/WorldBoss.vue'
 
 const heistStore = useHeistStore()
 const player = usePlayerStore()
+const mainTab = ref('team')
 const tab = ref('browse')
 
 const currentTarget = computed(() => getHeistTargetById(heistStore.lobby?.targetId))

@@ -339,7 +339,7 @@ export const usePlayerStore = defineStore('player', {
 
     /**
      * Τηλέφωνο από Ψηλά — spend 10 Μέσον to:
-     *   A) Clear hospital status (if in hospital)
+     *   A) Clear jail status instantly (if in jail)
      *   B) Grant 10-minute PvP immunity (if free)
      * Cooldown: 24 hours.
      */
@@ -352,13 +352,12 @@ export const usePlayerStore = defineStore('player', {
       }
       this.mesonAbilityCooldowns.tilefonoApsila = Date.now()
 
-      if (this.status === 'hospital') {
+      if (this.status === 'jail') {
         this.clearStatus()
-        this.resources.hp.current = Math.max(1, Math.floor(this.resources.hp.max * 0.5))
-        this.logActivity('📞 Τηλέφωνο από Ψηλά — εξήλθες από το Νοσοκομείο!', 'success')
-        useGameStore().addNotification('Ελευθερώθηκες από το Νοσοκομείο!', 'success')
+        this.logActivity('📞 Τηλέφωνο από Ψηλά — αποφυλακίστηκες!', 'success')
+        useGameStore().addNotification('Ελευθερώθηκες από τη Φυλακή!', 'success')
         useGameStore().saveGame({ immediate: true })
-        return { success: true, effect: 'hospital_cleared' }
+        return { success: true, effect: 'jail_cleared' }
       }
 
       this.pvpImmunityEndsAt = Date.now() + 10 * 60 * 1000

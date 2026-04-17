@@ -72,9 +72,20 @@ const router = useRouter()
 
 // ── Level-up popup ────────────────────────────────────────────────────────
 const levelUpData = ref(null)
-let lastLevel = player.level
+let lastLevel = null  // null until game is initialized
+
+// Only start watching for level-ups after the game finishes loading.
+// This prevents the popup from firing when the save is hydrated on page load.
+watch(() => gameStore.initialized, (initialized) => {
+  if (initialized) {
+    // Snapshot the current level AFTER load — any future increase is a real level-up
+    lastLevel = player.level
+  }
+})
 
 watch(() => player.level, (newLevel) => {
+  // lastLevel is null until initialized — ignore changes during hydration
+  if (lastLevel === null) return
   if (newLevel > lastLevel) {
     levelUpData.value = {
       level: newLevel,

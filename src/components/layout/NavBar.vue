@@ -101,11 +101,11 @@ const categories = [
   {
     label: 'Εγκληματικός Υπόκοσμος',
     items: [
-      { to: '/black-market', icon: '🕵️', label: 'Μαυραγορίτης', badgeKey: null },
       { to: '/smuggling',    icon: '🚬', label: 'Λαθρεμπόριο',  badgeKey: null },
       { to: '/loans',        icon: '🦈', label: 'Τοκογλύφος',   badgeKey: null },
       { to: '/bounties',     icon: '🎯', label: 'Συμβόλαια',    badgeKey: null },
-      { to: '/world-boss',   icon: '🏦', label: 'Ριφιφί',       badgeKey: null },
+      { to: '/heist',        icon: '🔫', label: 'Ομαδικό Ριφιφί', badgeKey: null },
+      { to: '/territory',    icon: '🏙️', label: 'Εδάφη',        badgeKey: null },
     ],
   },
   {
@@ -131,7 +131,6 @@ const categories = [
     label: 'Κοινωνικά & Φήμη',
     items: [
       { to: '/faction',          icon: '🏴', label: 'Συμμορία',    badgeKey: null },
-      { to: '/faction-fortress', icon: '🏰', label: 'Οχυρό',       badgeKey: null },
       { to: '/friends',          icon: '👥', label: 'Φίλοι',       badgeKey: 'friends' },
       { to: '/leaderboard',      icon: '🏅', label: 'Κατάταξη',    badgeKey: null },
       { to: '/achievements',     icon: '🏆', label: 'Επιτεύγματα', badgeKey: 'achievements' },

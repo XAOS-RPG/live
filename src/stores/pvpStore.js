@@ -74,12 +74,14 @@ export const usePvpStore = defineStore('pvp', {
     /** Map a Supabase profile row to a combat-ready target object */
     _mapProfile(profile) {
       const sd = profile.save_data ?? {}
-      const level = sd.level ?? 1
-      const hp = sd.resources?.hp?.current ?? 100
-      const hpMax = sd.resources?.hp?.max ?? 100
-      const stats = sd.stats ?? { strength: 5, speed: 5, dexterity: 5, defense: 5 }
-      const status = sd.status ?? 'free'
-      const timerEnd = sd.statusTimerEnd ?? null
+      // save_data stores everything under stores.player
+      const p = sd.stores?.player ?? sd
+      const level = p.level ?? 1
+      const hp = p.resources?.hp?.current ?? 100
+      const hpMax = p.resources?.hp?.max ?? 100
+      const stats = p.stats ?? { strength: 5, speed: 5, dexterity: 5, defense: 5 }
+      const status = p.status ?? 'free'
+      const timerEnd = p.statusTimerEnd ?? null
       const isActuallyFree = status === 'free' || (timerEnd && Date.now() > new Date(timerEnd).getTime())
       return {
         id: profile.id,
@@ -120,8 +122,9 @@ export const usePvpStore = defineStore('pvp', {
         .single()
 
       const freshSd = fresh?.save_data ?? {}
-      const freshStatus = freshSd.status ?? 'free'
-      const freshTimerEnd = freshSd.statusTimerEnd ?? null
+      const freshP = freshSd.stores?.player ?? freshSd
+      const freshStatus = freshP.status ?? 'free'
+      const freshTimerEnd = freshP.statusTimerEnd ?? null
       const isFree = freshStatus === 'free' || (freshTimerEnd && Date.now() > new Date(freshTimerEnd).getTime())
 
       if (!fresh || !isFree) {
@@ -129,14 +132,14 @@ export const usePvpStore = defineStore('pvp', {
       }
 
       // Check PvP immunity from Τηλέφωνο από Ψηλά
-      const targetImmunityEnd = freshSd.pvpImmunityEndsAt ?? null
+      const targetImmunityEnd = freshP.pvpImmunityEndsAt ?? null
       if (targetImmunityEnd && targetImmunityEnd > Date.now()) {
         return { aborted: true, reason: 'Ο παίκτης έχει Ασυλία από Τηλέφωνο από Ψηλά!' }
       }
 
-      const defStats = freshSd.stats ?? target.stats
-      const defHP = freshSd.resources?.hp?.current ?? target.hp
-      const defCash = freshSd.cash ?? 0
+      const defStats = freshP.stats ?? target.stats
+      const defHP = freshP.resources?.hp?.current ?? target.hp
+      const defCash = freshP.cash ?? 0
 
       const result = simulateFight(
         player.stats,
