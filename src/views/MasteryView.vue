@@ -34,86 +34,93 @@
       </div>
     </div>
 
-    <!-- Skill tree -->
-    <div class="tree-wrapper">
-      <div v-for="col in columns" :key="col.id" class="tree-branch">
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button
+        v-for="col in columns"
+        :key="col.id"
+        class="tab-btn"
+        :class="['tab-' + col.id, { active: activeTab === col.id }]"
+        @click="activeTab = col.id"
+      >
+        <span class="tab-icon">{{ col.icon }}</span>
+        <span class="tab-label">{{ col.label }}</span>
+        <span class="tab-count">{{ unlockedCount(col) }}/{{ col.nodes.length }}</span>
+      </button>
+    </div>
 
-        <!-- Branch header -->
-        <div class="branch-header" :class="'branch-' + col.id">
-          <span class="branch-icon">{{ col.icon }}</span>
-          <span class="branch-label">{{ col.label }}</span>
-        </div>
+    <!-- Active tab panel -->
+    <template v-for="col in columns" :key="col.id">
+      <div v-if="activeTab === col.id" class="branch-nodes tab-panel">
+        <template v-for="(node, idx) in col.nodes" :key="node.id">
 
-        <!-- Nodes with connectors -->
-        <div class="branch-nodes">
-          <template v-for="(node, idx) in col.nodes" :key="node.id">
+          <div
+            v-if="idx > 0"
+            class="connector"
+            :class="{
+              'connector-active': isUnlocked(col.nodes[idx-1].id),
+              'connector-locked': !isUnlocked(col.nodes[idx-1].id),
+            }"
+          ></div>
 
-            <!-- Connector line between nodes -->
-            <div
-              v-if="idx > 0"
-              class="connector"
-              :class="{
-                'connector-active': isUnlocked(col.nodes[idx-1].id),
-                'connector-locked': !isUnlocked(col.nodes[idx-1].id),
-              }"
-            ></div>
-
-            <!-- Node card -->
-            <div
-              class="node-card"
-              :class="{
-                'node-unlocked': isUnlocked(node.id),
-                'node-available': canUnlock(node),
-                'node-locked': !isUnlocked(node.id) && !canUnlock(node),
-                'node-equipped': isEquipped(node.id),
-              }"
-              @click="handleNodeClick(node)"
-            >
-              <div class="node-top">
-                <span class="node-icon">{{ node.icon }}</span>
-                <div class="node-badges">
-                  <span class="node-type-badge" :class="node.active ? 'badge-active' : 'badge-passive'">
-                    {{ node.active ? 'Ενεργό' : 'Παθητικό' }}
-                  </span>
-                  <span v-if="isEquipped(node.id)" class="node-type-badge badge-equipped">⚔️ Εξοπλ.</span>
-                </div>
-              </div>
-              <div class="node-name">{{ node.name }}</div>
-              <div class="node-desc">{{ node.desc }}</div>
-
-              <div class="node-action">
-                <template v-if="isUnlocked(node.id)">
-                  <button
-                    v-if="node.active"
-                    class="node-btn"
-                    :class="isEquipped(node.id) ? 'btn-unequip' : 'btn-equip'"
-                    @click.stop="toggleEquip(node.id)"
-                  >
-                    {{ isEquipped(node.id) ? '− Αφαίρεση' : '+ Εξόπλισε' }}
-                  </button>
-                  <span v-else class="node-passive-label">✅ Ενεργό</span>
-                </template>
-                <button v-else-if="canUnlock(node)" class="node-btn btn-unlock" @click.stop="unlock(node)">
-                  🔓 Ξεκλείδωσε (1pt)
-                </button>
-                <span v-else class="node-locked-label">🔒 Κλειδωμένο</span>
+          <div
+            class="node-card"
+            :class="{
+              'node-unlocked': isUnlocked(node.id),
+              'node-available': canUnlock(node),
+              'node-locked': !isUnlocked(node.id) && !canUnlock(node),
+              'node-equipped': isEquipped(node.id),
+              ['node-theme-' + col.id]: true,
+            }"
+            @click="handleNodeClick(node)"
+          >
+            <div class="node-top">
+              <span class="node-icon">{{ node.icon }}</span>
+              <div class="node-badges">
+                <span class="node-type-badge" :class="node.active ? 'badge-active' : 'badge-passive'">
+                  {{ node.active ? 'Ενεργό' : 'Παθητικό' }}
+                </span>
+                <span v-if="isEquipped(node.id)" class="node-type-badge badge-equipped">⚔️ Εξοπλ.</span>
               </div>
             </div>
+            <div class="node-name">{{ node.name }}</div>
+            <div class="node-desc">{{ node.desc }}</div>
 
-          </template>
-        </div>
+            <div class="node-action">
+              <template v-if="isUnlocked(node.id)">
+                <button
+                  v-if="node.active"
+                  class="node-btn"
+                  :class="isEquipped(node.id) ? 'btn-unequip' : 'btn-equip'"
+                  @click.stop="toggleEquip(node.id)"
+                >
+                  {{ isEquipped(node.id) ? '− Αφαίρεση' : '+ Εξόπλισε' }}
+                </button>
+                <span v-else class="node-passive-label">✅ Ενεργό</span>
+              </template>
+              <button v-else-if="canUnlock(node)" class="node-btn btn-unlock" @click.stop="unlock(node)">
+                🔓 Ξεκλείδωσε (1pt)
+              </button>
+              <span v-else class="node-locked-label">🔒 {{ node.requires ? 'Απαιτεί: ' + (abilityById(node.requires)?.name ?? node.requires) : 'Κλειδωμένο' }}</span>
+            </div>
+          </div>
+
+        </template>
       </div>
-    </div>
+    </template>
 
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useGameStore } from '../stores/gameStore'
 
 const player = usePlayerStore()
-const game = useGameStore()
+const game   = useGameStore()
+
+const activeTab = ref('offense')
 
 const columns = [
   {
@@ -121,9 +128,16 @@ const columns = [
     label: 'Βία',
     icon: '⚔️',
     nodes: [
-      { id: 'vape',      tier: 0, requires: null,      active: true,  icon: '💨', name: 'Vape',           desc: 'Κοστίζει 5 Stamina · Θεραπεύει 20% μέγ. HP' },
-      { id: 'ftysimo',   tier: 1, requires: 'vape',    active: true,  icon: '🫦', name: 'Φτύσιμο',        desc: 'Κοστίζει 2 Stamina · Δηλητηριάζει (5 ζημιά/γύρο × 3)' },
-      { id: 'berserker', tier: 2, requires: 'ftysimo', active: false, icon: '🔥', name: 'Μανία',          desc: 'Παθητικό · +15% ζημιά όταν HP < 30%' },
+      { id: 'vape',        tier: 0, requires: null,          active: true,  icon: '💨', name: 'Vape',                  desc: 'Κοστίζει 5 Stamina · Θεραπεύει 20% μέγ. HP' },
+      { id: 'ftysimo',     tier: 1, requires: 'vape',        active: true,  icon: '🫦', name: 'Φτύσιμο',               desc: 'Κοστίζει 2 Stamina · Δηλητηριάζει (5 ζημιά/γύρο × 3)' },
+      { id: 'berserker',   tier: 2, requires: 'ftysimo',     active: false, icon: '🔥', name: 'Μανία',                 desc: 'Παθητικό · +15% ζημιά όταν HP < 30%' },
+      { id: 'adrenaline',  tier: 3, requires: 'berserker',   active: true,  icon: '⚡', name: 'Αδρεναλίνη',            desc: 'Κοστίζει 12 Stamina · +30% ζημιά στο επόμενο χτύπημα' },
+      { id: 'crit_eye',    tier: 4, requires: 'adrenaline',  active: false, icon: '🎯', name: 'Κριτικό Μάτι',          desc: 'Παθητικό · +10% πιθανότητα κριτικού (2× ζημιά)' },
+      { id: 'bloodthirst', tier: 5, requires: 'crit_eye',    active: false, icon: '🩸', name: 'Αιματοδίψης',           desc: 'Παθητικό · Κάθε νίκη αποκαθιστά 15 HP' },
+      { id: 'iron_fist',   tier: 6, requires: 'bloodthirst', active: true,  icon: '✊', name: 'Σιδερένια Γροθιά',      desc: 'Κοστίζει 15 Stamina · Αγνοεί την άμυνα του αντιπάλου' },
+      { id: 'executioner', tier: 7, requires: 'iron_fist',   active: false, icon: '🗡️', name: 'Εκτελεστής',            desc: 'Παθητικό · +25% ζημιά σε αντιπάλους με HP < 25%' },
+      { id: 'war_cry',     tier: 8, requires: 'executioner', active: true,  icon: '📣', name: 'Πολεμική Κραυγή',       desc: 'Κοστίζει 20 Stamina · Stun αντιπάλου για 1 γύρο' },
+      { id: 'death_blow',  tier: 9, requires: 'war_cry',     active: false, icon: '💀', name: 'Θανατηφόρο Χτύπημα',   desc: 'Παθητικό · 15% πιθανότητα άμεσης νοκ-άουτ' },
     ],
   },
   {
@@ -131,9 +145,16 @@ const columns = [
     label: 'Αντοχή',
     icon: '🛡️',
     nodes: [
-      { id: 'kolodaktylo', tier: 0, requires: null,          active: true,  icon: '🖕', name: 'Κωλοδάχτυλο',   desc: 'Κοστίζει 8 Stamina · Μειώνει άμυνα αντιπάλου −15%' },
-      { id: 'klotsia',     tier: 1, requires: 'kolodaktylo', active: true,  icon: '🦵', name: 'Κλωτσιά',       desc: 'Κοστίζει 80% Stamina · Τεράστια ζημιά + Stun' },
-      { id: 'iron_will',   tier: 2, requires: 'klotsia',     active: false, icon: '⚙️', name: 'Σιδερένια Θέληση', desc: 'Παθητικό · Επιβιώνεις με 1 HP μία φορά ανά μάχη' },
+      { id: 'kolodaktylo',   tier: 0, requires: null,              active: true,  icon: '🖕', name: 'Κωλοδάχτυλο',       desc: 'Κοστίζει 8 Stamina · Μειώνει άμυνα αντιπάλου −15%' },
+      { id: 'klotsia',       tier: 1, requires: 'kolodaktylo',     active: true,  icon: '🦵', name: 'Κλωτσιά',           desc: 'Κοστίζει 80% Stamina · Τεράστια ζημιά + Stun' },
+      { id: 'iron_will',     tier: 2, requires: 'klotsia',         active: false, icon: '⚙️', name: 'Σιδερένια Θέληση', desc: 'Παθητικό · Επιβιώνεις με 1 HP μία φορά ανά μάχη' },
+      { id: 'block',         tier: 3, requires: 'iron_will',       active: true,  icon: '🛑', name: 'Μπλοκάρισμα',       desc: 'Κοστίζει 10 Stamina · Μειώνει το επόμενο χτύπημα κατά 60%' },
+      { id: 'thick_skin',    tier: 4, requires: 'block',           active: false, icon: '🦏', name: 'Σκληρό Δέρμα',      desc: 'Παθητικό · −10% σε όλη τη ζημιά που δέχεσαι' },
+      { id: 'endurance_up',  tier: 5, requires: 'thick_skin',      active: false, icon: '💪', name: 'Σιδερένιο Κορμί',   desc: 'Παθητικό · +25 μέγιστα HP' },
+      { id: 'antidote',      tier: 6, requires: 'endurance_up',    active: false, icon: '🧪', name: 'Ανοσία',             desc: 'Παθητικό · Ανοσία στη δηλητηρίαση' },
+      { id: 'fortress',      tier: 7, requires: 'antidote',        active: true,  icon: '🏰', name: 'Φρούριο',            desc: 'Κοστίζει 25 Stamina · +40% άμυνα για 2 γύρους' },
+      { id: 'resilience',    tier: 8, requires: 'fortress',        active: false, icon: '♻️', name: 'Ανάκαμψη',           desc: 'Παθητικό · +5 HP ανά 30s εκτός μάχης' },
+      { id: 'unbreakable',   tier: 9, requires: 'resilience',      active: false, icon: '💎', name: 'Αδάμαντας',          desc: 'Παθητικό · 15% πιθανότητα να μηδενιστεί οποιοδήποτε χτύπημα' },
     ],
   },
   {
@@ -141,18 +162,27 @@ const columns = [
     label: 'Πονηριά',
     icon: '🃏',
     nodes: [
-      { id: 'second_wind', tier: 0, requires: null,          active: false, icon: '💨', name: 'Δεύτερη Ανάσα', desc: 'Παθητικό · Ανάσα αναπληρώνει +10 επιπλέον Stamina' },
-      { id: 'pickpocket',  tier: 1, requires: 'second_wind', active: false, icon: '🤏', name: 'Τσιμπολόγος',  desc: 'Παθητικό · +10% χρήματα από νίκες' },
-      { id: 'ghost',       tier: 2, requires: 'pickpocket',  active: false, icon: '👻', name: 'Φάντασμα',     desc: 'Παθητικό · +5% αποφυγή χτυπημάτων' },
+      { id: 'second_wind',   tier: 0, requires: null,              active: false, icon: '💨', name: 'Δεύτερη Ανάσα',    desc: 'Παθητικό · Ανάσα αναπληρώνει +10 επιπλέον Stamina' },
+      { id: 'pickpocket',    tier: 1, requires: 'second_wind',     active: false, icon: '🤏', name: 'Τσιμπολόγος',      desc: 'Παθητικό · +10% χρήματα από νίκες σε μάχη' },
+      { id: 'ghost',         tier: 2, requires: 'pickpocket',      active: false, icon: '👻', name: 'Φάντασμα',         desc: 'Παθητικό · +5% αποφυγή χτυπημάτων' },
+      { id: 'smooth_talker', tier: 3, requires: 'ghost',           active: false, icon: '🗣️', name: 'Γλυκόλαλος',       desc: 'Παθητικό · Εξόρμηση: +1 επιλογή διαπραγμάτευσης σε events' },
+      { id: 'contacts',      tier: 4, requires: 'smooth_talker',   active: false, icon: '📞', name: 'Δίκτυο Επαφών',    desc: 'Παθητικό · +10% Crime XP από όλα τα εγκλήματα' },
+      { id: 'shadowstep',    tier: 5, requires: 'contacts',        active: true,  icon: '🌑', name: 'Σκιά',             desc: 'Κοστίζει 15 Stamina · Αποφύγε όλα τα χτυπήματα για 1 γύρο' },
+      { id: 'opportunist',   tier: 6, requires: 'shadowstep',      active: false, icon: '⭐', name: 'Ευκαιριστής',      desc: 'Παθητικό · Hot nodes στην Εξόρμηση δίνουν 2× rewards' },
+      { id: 'moneybags',     tier: 7, requires: 'opportunist',     active: false, icon: '💰', name: 'Μεγαλέμπορος',    desc: 'Παθητικό · +15% μετρητά από κάθε πηγή' },
+      { id: 'long_arm',      tier: 8, requires: 'moneybags',       active: false, icon: '🤝', name: 'Μακρύ Χέρι',      desc: 'Παθητικό · Πιθανότητα φυλάκισης −25%' },
+      { id: 'untouchable',   tier: 9, requires: 'long_arm',        active: false, icon: '🎩', name: 'Άθικτος',          desc: 'Παθητικό · 20% να αποφύγεις σύλληψη σε αποτυχία εγκλήματος' },
     ],
   },
 ]
 
-const allNodes = columns.flatMap(c => c.nodes)
+const allNodes   = columns.flatMap(c => c.nodes)
 const abilityById = (id) => allNodes.find(n => n.id === id)
 
 const isUnlocked = (id) => !!player.unlockedAbilities[id]
 const isEquipped  = (id) => player.equippedAbilities.includes(id)
+
+const unlockedCount = (col) => col.nodes.filter(n => isUnlocked(n.id)).length
 
 const canUnlock = (node) => {
   if (isUnlocked(node.id)) return false
@@ -195,7 +225,7 @@ function handleNodeClick(node) {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  max-width: 960px;
+  max-width: 640px;
   margin: 0 auto;
 }
 
@@ -270,51 +300,66 @@ function handleNodeClick(node) {
 .eq-remove:hover { color: var(--color-danger); background: rgba(231,76,60,0.1); }
 .eq-empty-label { color: var(--text-secondary); font-size: var(--font-size-xs); font-style: italic; margin: auto; }
 
-/* ── Tree ── */
-.tree-wrapper {
+/* ── Tabs ── */
+.tab-bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-lg);
-}
-@media (max-width: 640px) {
-  .tree-wrapper { grid-template-columns: 1fr; }
-  .equipped-slots { grid-template-columns: 1fr; }
-}
-
-.tree-branch { display: flex; flex-direction: column; gap: 0; }
-
-.branch-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-sm);
-  letter-spacing: 0.04em;
 }
-.branch-offense { background: linear-gradient(135deg, rgba(231,76,60,0.2), rgba(231,76,60,0.05)); border: 1px solid rgba(231,76,60,0.3); border-bottom: none; }
-.branch-defense  { background: linear-gradient(135deg, rgba(52,152,219,0.2), rgba(52,152,219,0.05)); border: 1px solid rgba(52,152,219,0.3); border-bottom: none; }
-.branch-utility  { background: linear-gradient(135deg, rgba(155,89,182,0.2), rgba(155,89,182,0.05)); border: 1px solid rgba(155,89,182,0.3); border-bottom: none; }
-.branch-icon { font-size: 1.2rem; }
 
-.branch-nodes {
+.tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-sm) var(--space-xs);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--text-secondary);
+}
+.tab-btn:hover { background: var(--bg-surface-raised); color: var(--text-primary); }
+
+.tab-btn.active.tab-offense {
+  border-color: rgba(231,76,60,0.5);
+  background: rgba(231,76,60,0.08);
+  color: #e74c3c;
+}
+.tab-btn.active.tab-defense {
+  border-color: rgba(52,152,219,0.5);
+  background: rgba(52,152,219,0.08);
+  color: #3498db;
+}
+.tab-btn.active.tab-utility {
+  border-color: rgba(155,89,182,0.5);
+  background: rgba(155,89,182,0.08);
+  color: #9b59b6;
+}
+
+.tab-icon  { font-size: 1.4rem; line-height: 1; }
+.tab-label { font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); }
+.tab-count { font-size: 10px; color: var(--text-secondary); font-family: var(--font-family-mono); }
+.tab-btn.active .tab-count { color: inherit; opacity: 0.7; }
+
+/* ── Node list panel ── */
+.tab-panel {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
-  border-top: none;
-  border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+  border-radius: var(--border-radius-md);
   overflow: hidden;
 }
 
 /* Connector between tiers */
 .connector {
-  height: 24px;
+  height: 20px;
   width: 2px;
   margin: 0 auto;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
 }
 .connector::before {
   content: '';
@@ -347,6 +392,10 @@ function handleNodeClick(node) {
 .node-card.node-unlocked  { background: rgba(46,204,113,0.05); }
 .node-card.node-equipped  { background: rgba(241,196,15,0.07); }
 .node-card.node-locked    { opacity: 0.45; cursor: default; }
+
+.node-card.node-unlocked.node-theme-offense { background: rgba(231,76,60,0.06); }
+.node-card.node-unlocked.node-theme-defense { background: rgba(52,152,219,0.06); }
+.node-card.node-unlocked.node-theme-utility { background: rgba(155,89,182,0.06); }
 
 .node-top {
   display: flex;
@@ -405,4 +454,8 @@ function handleNodeClick(node) {
 
 .node-passive-label { font-size: 11px; color: #2ecc71; }
 .node-locked-label  { font-size: 11px; color: var(--text-secondary); }
+
+@media (max-width: 480px) {
+  .equipped-slots { grid-template-columns: 1fr; }
+}
 </style>
