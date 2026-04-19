@@ -53,23 +53,24 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
     retaliationBonus: null, // { targetId, targetUsername, endsAt }
     disreputableUntil: null,
     incomeAccumulator: 0,   // ms accumulated for income tick
+    myUserId: null,         // set from auth on fetchNeighborhoods, not serialized
     lastFetched: 0,
     _channel: null,
   }),
 
   getters: {
     myNeighborhoods: (state) => {
-      const player = usePlayerStore()
-      if (!player.name) return []
+      if (!state.myUserId) return []
       return Object.entries(state.neighborhoods)
-        .filter(([, n]) => n.ownerId && n.ownerId === state._myUserId)
+        .filter(([, n]) => n.ownerId && n.ownerId === state.myUserId)
         .map(([id, n]) => ({ id, ...n }))
     },
 
     // Spread penalty: 0 for 1 territory, -5% per extra
     spreadPenalty: (state) => {
+      if (!state.myUserId) return 0
       const count = Object.values(state.neighborhoods)
-        .filter(n => n.ownerId === state._myUserId).length
+        .filter(n => n.ownerId === state.myUserId).length
       return count <= 1 ? 0 : (count - 1) * SPREAD_PENALTY
     },
 
@@ -77,17 +78,21 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       const def = getNeighborhoodById(nid)
       if (!def) return 1000
       const n = state.neighborhoods[nid]
-      const isOwner = n?.ownerId === state._myUserId
-      const ownedCount = Object.values(state.neighborhoods)
-        .filter(x => x.ownerId === (isOwner ? state._myUserId : n?.ownerId)).length
+      const ownerId = n?.ownerId || null
+      // Spread penalty based on how many territories THIS owner has
+      const ownedCount = ownerId
+        ? Object.values(state.neighborhoods).filter(x => x.ownerId === ownerId).length
+        : 1
       const penalty = ownedCount <= 1 ? 0 : (ownedCount - 1) * SPREAD_PENALTY
-      const factionBonus = isOwner && useFactionStore().currentFaction ? FACTION_WALL_BONUS : 0
+      const isMyTerritory = !!(ownerId && ownerId === state.myUserId)
+      const factionBonus = isMyTerritory && useFactionStore().currentFaction ? FACTION_WALL_BONUS : 0
       return Math.floor(def.wallBaseHp * (1 - penalty) * (1 + factionBonus))
     },
 
     dailyMaintenanceCost: (state) => {
+      if (!state.myUserId) return 0
       const owned = Object.values(state.neighborhoods)
-        .filter(n => n.ownerId === state._myUserId).length
+        .filter(n => n.ownerId === state.myUserId).length
       let total = 0
       for (let i = 0; i < owned; i++) total += (MAINTENANCE_COSTS[i] ?? 2500)
       return total
@@ -104,7 +109,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
     canAttack: (state) => (nid) => {
       const n = state.neighborhoods[nid]
       if (!n || !n.ownerId) return { can: false, reason: 'empty' }
-      if (n.ownerId === state._myUserId) return { can: false, reason: 'own' }
+      if (state.myUserId && n.ownerId === state.myUserId) return { can: false, reason: 'own' }
       const player = usePlayerStore()
       if (player.resources.nerve.current < ATTACK_NERVE_COST) {
         return { can: false, reason: 'no_nerve' }
@@ -117,8 +122,9 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
     canClaim: (state) => (nid) => {
       const n = state.neighborhoods[nid]
       if (!n || n.ownerId) return { can: false, reason: n?.ownerId ? 'owned' : 'unknown' }
-      const owned = Object.values(state.neighborhoods)
-        .filter(x => x.ownerId === state._myUserId).length
+      const owned = state.myUserId
+        ? Object.values(state.neighborhoods).filter(x => x.ownerId === state.myUserId).length
+        : 0
       if (owned >= MAX_OWNED) return { can: false, reason: 'cap' }
       return { can: true }
     },
@@ -137,6 +143,13 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
 
     // Aggregated bonuses for the current player based on owned neighborhoods
     myBonuses: (state) => {
+      if (!state.myUserId) return {
+        jailTimeReduction: 0, bustBonus: 0, smugglingRiskReduction: 0,
+        craftingCostReduction: 0, craftingTimeReduction: 0, incomePerHour: 0,
+        dropRateBonus: 0, weaponDiscountPercent: 0, crimeSuccessBonus: 0,
+        policeDetectionReduction: 0, sellPriceBonus: 0, highTierCrimeBonus: 0,
+        crimeXpBonus: 0, gymGainBonus: 0, hospitalTimeReduction: 0,
+      }
       const bonuses = {
         jailTimeReduction: 0,
         bustBonus: 0,
@@ -155,7 +168,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
         hospitalTimeReduction: 0,
       }
       for (const [id, n] of Object.entries(state.neighborhoods)) {
-        if (n.ownerId !== state._myUserId) continue
+        if (n.ownerId !== state.myUserId) continue
         const def = getNeighborhoodById(id)
         if (!def) continue
         for (const key of Object.keys(bonuses)) {
@@ -167,8 +180,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       return bonuses
     },
 
-    // Used internally — fetched lazily from supabase.auth
-    _myUserId: () => null, // overridden at runtime via _resolveMyUserId
   },
 
   actions: {
@@ -188,6 +199,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
         if (error) throw error
 
         const myId = await this._resolveMyUserId()
+        this.myUserId = myId
 
         for (const row of data) {
           if (!NEIGHBORHOOD_IDS.includes(row.neighborhood_id)) continue

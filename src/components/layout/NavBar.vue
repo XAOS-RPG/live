@@ -105,7 +105,7 @@ const categories = [
       { to: '/loans',        icon: '🦈', label: 'Τοκογλύφος',   badgeKey: null },
       { to: '/bounties',     icon: '🎯', label: 'Συμβόλαια',    badgeKey: null },
       { to: '/heist',        icon: '🔫', label: 'Ομαδικό Ριφιφί', badgeKey: null },
-      { to: '/territory',    icon: '🏙️', label: 'Εδάφη',        badgeKey: null },
+      { to: '/neighborhoods',icon: '🏘️', label: 'Κυριαρχία',    badgeKey: null },
     ],
   },
   {
