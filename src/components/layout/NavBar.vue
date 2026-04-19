@@ -106,6 +106,7 @@ const categories = [
       { to: '/bounties',     icon: '🎯', label: 'Συμβόλαια',    badgeKey: null },
       { to: '/heist',        icon: '🔫', label: 'Ομαδικό Ριφιφί', badgeKey: null },
       { to: '/neighborhoods',icon: '🏘️', label: 'Κυριαρχία',    badgeKey: null },
+      { to: '/expedition',   icon: '🗺️', label: 'Εξόρμηση',     badgeKey: null },
     ],
   },
   {

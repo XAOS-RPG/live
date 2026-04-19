@@ -38,6 +38,7 @@ import { useEncounterStore } from './encounterStore'
 import { useTerritoryStore } from './territoryStore'
 import { useHeistStore } from './heistStore'
 import { useNeighborhoodStore } from './neighborhoodStore'
+import { useExpeditionStore } from './expeditionStore'
 
 let toastId = 0
 let _saveTimer = null
@@ -156,6 +157,7 @@ export const useGameStore = defineStore('game', {
           territory: useTerritoryStore().getSerializable(),
           heist: useHeistStore().getSerializable(),
           neighborhood: useNeighborhoodStore().getSerializable(),
+          expedition: useExpeditionStore().getSerializable(),
         }
       }
     },
@@ -260,6 +262,8 @@ export const useGameStore = defineStore('game', {
       if (s.territory) useTerritoryStore().hydrate(s.territory)
       if (s.heist) useHeistStore().hydrate(s.heist)
       if (s.neighborhood) useNeighborhoodStore().hydrate(s.neighborhood)
+      if (s.expedition) useExpeditionStore().hydrate(s.expedition)
+      else useExpeditionStore().ensureDailyRollover()
     },
 
     async exportSave() {
