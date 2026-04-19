@@ -205,21 +205,30 @@ export const usePetStore = defineStore('pet', {
     },
 
     playWithPet(petId) {
+      const player    = usePlayerStore()
       const gameStore = useGameStore()
       const pet       = this.ownedPets.find(p => p.petId === petId)
       if (!pet) return false
       this._ensureStats(pet)
 
       const def = getPetDefinition(petId)
-      pet.happiness  = Math.min(100, pet.happiness + 30)
+
+      if (player.resources.energy.current < 5) {
+        gameStore.addNotification('Δεν έχεις αρκετή ενέργεια! (5 απαιτείται)', 'danger')
+        return false
+      }
+
+      player.modifyResource('energy', -5)
+      pet.happiness  = Math.min(100, pet.happiness + 5)
       pet.lastPlayed = Date.now()
 
-      gameStore.addNotification(`${def.icon} Έπαιξες με το ${def.name}! +30 Χαρά`, 'success')
+      gameStore.addNotification(`${def.icon} Έπαιξες με το ${def.name}! +5 Χαρά (-5 Ενέργεια)`, 'success')
       gameStore.saveGame()
       return true
     },
 
     bathPet(petId) {
+      const player    = usePlayerStore()
       const gameStore = useGameStore()
       const pet       = this.ownedPets.find(p => p.petId === petId)
       if (!pet) return false
@@ -234,11 +243,17 @@ export const usePetStore = defineStore('pet', {
         return false
       }
 
+      if (player.resources.energy.current < 10) {
+        gameStore.addNotification('Δεν έχεις αρκετή ενέργεια! (10 απαιτείται)', 'danger')
+        return false
+      }
+
+      player.modifyResource('energy', -10)
       pet.cleanliness = 100
       pet.happiness   = Math.min(100, pet.happiness + 15)
       pet.lastBathed  = now
 
-      gameStore.addNotification(`🛁 Έκανες μπάνιο το ${def.icon} ${def.name}! +15 Χαρά`, 'success')
+      gameStore.addNotification(`🛁 Έκανες μπάνιο το ${def.icon} ${def.name}! +15 Χαρά (-10 Ενέργεια)`, 'success')
       gameStore.saveGame()
       return true
     },
@@ -264,7 +279,19 @@ export const usePetStore = defineStore('pet', {
         return false
       }
 
+      if (player.resources.energy.current < 15) {
+        gameStore.addNotification('Δεν έχεις αρκετή ενέργεια! (15 απαιτείται)', 'danger')
+        return false
+      }
+
+      if ((pet.food ?? 100) < 15) {
+        gameStore.addNotification('Το κατοικίδιο δεν έχει αρκετή τροφή! (15 απαιτείται)', 'danger')
+        return false
+      }
+
       // Walk effects
+      player.modifyResource('energy', -15)
+      pet.food        = Math.max(0, (pet.food ?? 100) - 15)
       pet.lastWalked  = now
       pet.happiness   = Math.min(100, pet.happiness + 25)
       pet.cleanliness = Math.max(0, (pet.cleanliness ?? 100) - 20)  // gets dirty
@@ -294,7 +321,7 @@ export const usePetStore = defineStore('pet', {
           player.logActivity(`🐾 ${def.name} έφερε ${found.name} σπίτι`, 'info')
         }
       } else {
-        gameStore.addNotification(`${def.icon} Ωραία βόλτα! +25 Χαρά`, 'success')
+        gameStore.addNotification(`${def.icon} Ωραία βόλτα! +25 Χαρά (-15 Ενέργεια, -15 Τροφή)`, 'success')
       }
 
       gameStore.saveGame()
