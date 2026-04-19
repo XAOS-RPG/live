@@ -256,13 +256,14 @@ export function rollD6(successRate) {
   return { roll, targetRoll: target, success }
 }
 
-// ── Neighborhood Wall Mechanics ───────────────────────────────────────────────
+// ── Neighborhood Influence Mechanics ──────────────────────────────────────────
 
 /**
- * Damage dealt to a neighborhood wall per attack.
+ * Influence damage dealt to a neighborhood per attack.
+ * Represents intimidation/erosion of the owner's grip on the area.
  * Based on attacker strength + dexterity with variance.
  */
-export function calculateWallDamage(attackerStats) {
+export function calculateInfluenceDamage(attackerStats) {
   const base     = (attackerStats.strength ?? 5) * 3
   const dexBonus = (attackerStats.dexterity ?? 5) * 0.5
   const variance = 0.85 + Math.random() * 0.30

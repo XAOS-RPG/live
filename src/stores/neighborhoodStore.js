@@ -4,29 +4,59 @@ import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useFactionStore } from './factionStore'
 import { neighborhoods, getNeighborhoodById } from '../data/neighborhoods'
-import { calculateWallDamage, calculateFilotimoAttackPenalty } from '../engine/formulas'
+import { calculateInfluenceDamage, calculateFilotimoAttackPenalty } from '../engine/formulas'
+
+// ── Concept ──────────────────────────────────────────────────────────────────
+// "Επιρροή" (Influence) = how strongly the owner controls the neighborhood.
+// Attacks erode it (intimidation, street fights). When it hits 0 the owner
+// loses control. The owner can boost it by spending money on bribes,
+// advertising, hiring guards, or running a ΚΕΠ permit run.
+//
+// Note: the DB still stores this as `wall_hp` (legacy column name) — we map
+// it to `influence` everywhere in the app.
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const NEIGHBORHOOD_IDS     = neighborhoods.map(n => n.id)
 const MAX_OWNED            = 3
 const ATTACK_NERVE_COST    = 8
 const ATTACK_COOLDOWN_MS   = 2 * 60 * 60 * 1000    // 2 hours per neighborhood
+
+// Influence-boost actions (replace the old free-form repair input)
+const BRIBE_COST           = 500
+const BRIBE_BOOST          = 100
+const ADVERT_COST          = 2500
+const ADVERT_BOOST          = 600
+const ADVERT_COOLDOWN_MS   = 60 * 60 * 1000        // 1 hour
+const GUARDS_COST          = 10000
+const GUARDS_BOOST         = 2500
+const GUARDS_COOLDOWN_MS   = 4 * 60 * 60 * 1000    // 4 hours
+
 const KEP_NERVE_COST       = 3
 const KEP_CASH_COST        = 200
-const KEP_WALL_REPAIR      = 50
+const KEP_INFLUENCE_BOOST  = 500                    // was 50 wall HP
 const KEP_COOLDOWN_MS      = 6 * 60 * 60 * 1000    // 6 hours
-const REPAIR_CASH_PER_HP   = 5                      // 5 cash per 1 wall HP
+
 const INACTIVITY_MS        = 7 * 24 * 60 * 60 * 1000 // 7 days → neutral
 const COALITION_THRESHOLD  = 3                      // unique attackers in 24h for bonus
-const COALITION_BONUS      = 0.15                   // +15% wall damage
-const RETALIATION_BONUS    = 0.25                   // +25% attack if retaliation active
+const COALITION_BONUS      = 0.15                   // +15% influence damage
+const RETALIATION_BONUS    = 0.25                   // +25% damage if retaliation active
 const RETALIATION_MS       = 48 * 60 * 60 * 1000   // 48 hours
 const DISREPUTABLE_MS      = 2 * 60 * 60 * 1000    // 2 hours
-const SPREAD_PENALTY       = 0.05                   // -5% wall max HP per extra territory
-const FACTION_WALL_BONUS   = 0.10                   // +10% wall max HP if owner in a faction
+const SPREAD_PENALTY       = 0.05                   // -5% influence max per extra territory
+const FACTION_INFLUENCE_BONUS = 0.10                // +10% influence max if owner in a faction
 // Exponential maintenance cost per territory slot
 const MAINTENANCE_COSTS    = [500, 1000, 2500]
-const CAPTURE_WALL_FRACTION = 0.30                  // new capture starts at 30% wall HP
+const CAPTURE_INFLUENCE_FRACTION = 0.30             // new capture starts at 30% influence
+
+// Public read-only constants for the view
+export const NEIGHBORHOOD_BOOSTS = {
+  bribe:   { cost: BRIBE_COST,   boost: BRIBE_BOOST,   nerve: 0,                cooldownMs: 0,                  icon: '🤝', label: 'Δωροδοκίες (Φακελάκι)',   desc: 'Φακελάκια σε μπάτσους και ντόπιους — γρήγορη μικρή ενίσχυση.' },
+  advert:  { cost: ADVERT_COST,  boost: ADVERT_BOOST,  nerve: 0,                cooldownMs: ADVERT_COOLDOWN_MS, icon: '📢', label: 'Διαφήμιση Παρουσίας',     desc: 'Γκράφιτι, αφίσες και αντιπρόσωποι σε κάθε γωνία.' },
+  guards:  { cost: GUARDS_COST,  boost: GUARDS_BOOST,  nerve: 0,                cooldownMs: GUARDS_COOLDOWN_MS, icon: '🛡️', label: 'Πρόσληψη Φρουρών',         desc: 'Μάζεψε μπράβους — επιβολή στη γειτονιά.' },
+  kep:     { cost: KEP_CASH_COST, boost: KEP_INFLUENCE_BOOST, nerve: KEP_NERVE_COST, cooldownMs: KEP_COOLDOWN_MS, icon: '📋', label: 'ΚΕΠ Αδειοδότηση',         desc: 'Πάμε ΚΕΠ για άδεια λειτουργίας — η γραφειοκρατία βοηθάει.' },
+}
+export const ATTACK_NERVE_COST_PUBLIC = ATTACK_NERVE_COST
+export const NEIGHBORHOOD_MAX_OWNED   = MAX_OWNED
 
 function makeEmptyNeighborhoods() {
   return Object.fromEntries(
@@ -34,7 +64,7 @@ function makeEmptyNeighborhoods() {
       ownerId: null,
       ownerUsername: '',
       ownerLevel: 1,
-      wallHp: getNeighborhoodById(id)?.wallBaseHp ?? 1000,
+      influence: getNeighborhoodById(id)?.influenceBaseMax ?? 1000,
       capturedAt: 0,
       lastAttackedAt: 0,
       lastAttackerUsername: '',
@@ -48,7 +78,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
   state: () => ({
     neighborhoods: makeEmptyNeighborhoods(),
     attackCooldowns: {},    // { nid: timestampWhenCanAttackAgain }
-    kepCooldowns: {},       // { nid: timestampWhenCanKEPAgain }
+    boostCooldowns: {},     // { nid: { advert, guards, kep } }
     lastMaintenanceCheck: 0,
     retaliationBonus: null, // { targetId, targetUsername, endsAt }
     disreputableUntil: null,
@@ -74,7 +104,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       return count <= 1 ? 0 : (count - 1) * SPREAD_PENALTY
     },
 
-    effectiveWallMaxHp: (state) => (nid) => {
+    effectiveInfluenceMax: (state) => (nid) => {
       const def = getNeighborhoodById(nid)
       if (!def) return 1000
       const n = state.neighborhoods[nid]
@@ -85,8 +115,8 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
         : 1
       const penalty = ownedCount <= 1 ? 0 : (ownedCount - 1) * SPREAD_PENALTY
       const isMyTerritory = !!(ownerId && ownerId === state.myUserId)
-      const factionBonus = isMyTerritory && useFactionStore().currentFaction ? FACTION_WALL_BONUS : 0
-      return Math.floor(def.wallBaseHp * (1 - penalty) * (1 + factionBonus))
+      const factionBonus = isMyTerritory && useFactionStore().currentFaction ? FACTION_INFLUENCE_BONUS : 0
+      return Math.floor(def.influenceBaseMax * (1 - penalty) * (1 + factionBonus))
     },
 
     dailyMaintenanceCost: (state) => {
@@ -135,8 +165,8 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       return Math.max(0, cd - Date.now())
     },
 
-    kepCooldownRemaining: (state) => (nid) => {
-      const cd = state.kepCooldowns[nid]
+    boostCooldownRemaining: (state) => (nid, boostKey) => {
+      const cd = state.boostCooldowns[nid]?.[boostKey]
       if (!cd) return 0
       return Math.max(0, cd - Date.now())
     },
@@ -207,7 +237,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
             ownerId: row.owner_id || null,
             ownerUsername: row.owner_username || '',
             ownerLevel: row.owner_level || 1,
-            wallHp: row.wall_hp,
+            influence: row.wall_hp,
             capturedAt: row.captured_at || 0,
             lastAttackedAt: row.last_attacked_at || 0,
             lastAttackerUsername: row.last_attacker_username || '',
@@ -250,7 +280,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
               ownerId: row.owner_id || null,
               ownerUsername: row.owner_username || '',
               ownerLevel: row.owner_level || 1,
-              wallHp: row.wall_hp,
+              influence: row.wall_hp,
               capturedAt: row.captured_at || 0,
               lastAttackedAt: row.last_attacked_at || 0,
               lastAttackerUsername: row.last_attacker_username || '',
@@ -261,22 +291,22 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
             const gameStore = useGameStore()
             const def = getNeighborhoodById(row.neighborhood_id)
 
-            // Notify: someone captured our neighborhood
+            // Notify: someone took our neighborhood
             if (prev?.ownerId === myId && row.owner_id !== myId) {
               gameStore.addNotification(
-                `⚔️ Έχασες τη γειτονιά ${def?.name ?? row.neighborhood_id}!`, 'danger'
+                `⚔️ Έχασες τον έλεγχο της ${def?.name ?? row.neighborhood_id}!`, 'danger'
               )
             }
             // Notify: we just captured
             if (row.owner_id === myId && prev?.ownerId !== myId) {
               gameStore.addNotification(
-                `🏴 Κατέλαβες ${def?.name ?? row.neighborhood_id}!`, 'success'
+                `🏴 Ανέλαβες τη γειτονιά ${def?.name ?? row.neighborhood_id}!`, 'success'
               )
             }
-            // Notify: our wall was attacked
+            // Notify: our influence took a hit
             if (prev?.ownerId === myId && row.last_attacked_at > (prev?.lastAttackedAt ?? 0)) {
               gameStore.addNotification(
-                `🧱 Ο Τοίχος της ${def?.name} δέχτηκε επίθεση! (${row.wall_hp} HP)`, 'warning'
+                `💢 Η Επιρροή σου στην ${def?.name} δέχεται πίεση! (${row.wall_hp} Επιρροή)`, 'warning'
               )
             }
           }
@@ -297,17 +327,17 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       const check = this.canClaim(nid)
       if (!check.can) {
         const msgs = {
-          owned: 'Η γειτονιά έχει ιδιοκτήτη.',
-          cap: `Μπορείς να κατέχεις έως ${MAX_OWNED} γειτονιές.`,
+          owned: 'Η γειτονιά έχει ήδη ιδιοκτήτη.',
+          cap: `Μπορείς να ελέγχεις έως ${MAX_OWNED} γειτονιές.`,
         }
         useGameStore().addNotification(msgs[check.reason] ?? 'Δεν μπορείς.', 'danger')
         return false
       }
 
-      const player = usePlayerStore()
-      const myId   = await this._resolveMyUserId()
-      const def    = getNeighborhoodById(nid)
-      const wallHp = Math.floor((def?.wallBaseHp ?? 1000) * CAPTURE_WALL_FRACTION)
+      const player    = usePlayerStore()
+      const myId      = await this._resolveMyUserId()
+      const def       = getNeighborhoodById(nid)
+      const influence = Math.floor((def?.influenceBaseMax ?? 1000) * CAPTURE_INFLUENCE_FRACTION)
 
       try {
         const { error } = await supabase
@@ -316,7 +346,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
             owner_id: myId,
             owner_username: player.name,
             owner_level: player.level,
-            wall_hp: wallHp,
+            wall_hp: influence,
             captured_at: Date.now(),
             last_maintenance_paid_at: Date.now(),
             updated_at: new Date().toISOString(),
@@ -331,18 +361,21 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
           ownerId: myId,
           ownerUsername: player.name,
           ownerLevel: player.level,
-          wallHp,
+          influence,
           capturedAt: Date.now(),
           lastMaintenancePaidAt: Date.now(),
         }
 
-        player.logActivity(`🏴 Κατέλαβες τη γειτονιά ${def?.name}`, 'success')
-        useGameStore().addNotification(`🏴 Κατέλαβες ${def?.name}!`, 'success')
+        player.logActivity(`🏴 Ανέλαβες την αδέσμευτη γειτονιά ${def?.name}`, 'success')
+        useGameStore().addNotification(
+          `🏴 Ανέλαβες ${def?.name}! Ξεκινάς με ${influence} Επιρροή.`,
+          'success'
+        )
         useGameStore().saveGame()
         return true
       } catch (e) {
         console.error('claimEmpty failed:', e)
-        useGameStore().addNotification('Σφάλμα κατά την κατάληψη.', 'danger')
+        useGameStore().addNotification('Σφάλμα κατά την ανάληψη.', 'danger')
         return false
       }
     },
@@ -351,7 +384,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       const check = this.canAttack(nid)
       if (!check.can) {
         const msgs = {
-          empty: 'Η γειτονιά είναι ελεύθερη — κατάλαβέ την!',
+          empty: 'Η γειτονιά είναι ελεύθερη — ανάλαβέ την!',
           own: 'Δεν μπορείς να επιτεθείς στη δική σου γειτονιά.',
           no_nerve: `Χρειάζεσαι ${ATTACK_NERVE_COST} Θράσος.`,
           cooldown: 'Cooldown — περίμενε λίγο πριν ξαναχτυπήσεις.',
@@ -402,11 +435,11 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
         damageMultiplier += RETALIATION_BONUS
       }
 
-      // Calculate damage
-      const rawDamage = calculateWallDamage(player.stats)
-      const damage    = Math.floor(rawDamage * damageMultiplier)
-      const newWallHp = Math.max(0, n.wallHp - damage)
-      const captured  = newWallHp <= 0
+      // Calculate influence damage
+      const rawDamage    = calculateInfluenceDamage(player.stats)
+      const damage       = Math.floor(rawDamage * damageMultiplier)
+      const newInfluence = Math.max(0, n.influence - damage)
+      const captured     = newInfluence <= 0
 
       // Deduct nerve immediately
       player.modifyResource('nerve', -ATTACK_NERVE_COST)
@@ -417,8 +450,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
 
       try {
         if (captured) {
-          const maxHp = this.effectiveWallMaxHp(nid)
-          const startHp = Math.floor((def?.wallBaseHp ?? 1000) * CAPTURE_WALL_FRACTION)
+          const startInfluence = Math.floor((def?.influenceBaseMax ?? 1000) * CAPTURE_INFLUENCE_FRACTION)
 
           // Cap owned count before capture
           if (owned >= MAX_OWNED) {
@@ -433,7 +465,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
               owner_id: myId,
               owner_username: player.name,
               owner_level: player.level,
-              wall_hp: startHp,
+              wall_hp: startInfluence,
               captured_at: now,
               last_attacked_at: now,
               last_attacker_username: player.name,
@@ -449,20 +481,20 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
             ownerId: myId,
             ownerUsername: player.name,
             ownerLevel: player.level,
-            wallHp: startHp,
+            influence: startInfluence,
             capturedAt: now,
             lastAttackedAt: now,
             lastAttackerUsername: player.name,
             lastMaintenancePaidAt: now,
           }
 
-          player.logActivity(`🏴 Κατέλαβες ${def?.name} μετά από ${damage} damage!`, 'success')
-          useGameStore().addNotification(`🏴 Κατέλαβες ${def?.name}!`, 'success')
+          player.logActivity(`🏴 Πήρες τον έλεγχο της ${def?.name} με ${damage} ζημιά Επιρροής!`, 'success')
+          useGameStore().addNotification(`🏴 Πήρες τον έλεγχο της ${def?.name}!`, 'success')
         } else {
           const { error } = await supabase
             .from('neighborhood_control')
             .update({
-              wall_hp: newWallHp,
+              wall_hp: newInfluence,
               last_attacked_at: now,
               last_attacker_username: player.name,
               updated_at: new Date().toISOString(),
@@ -473,16 +505,16 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
 
           this.neighborhoods[nid] = {
             ...this.neighborhoods[nid],
-            wallHp: newWallHp,
+            influence: newInfluence,
             lastAttackedAt: now,
             lastAttackerUsername: player.name,
           }
 
-          const coalitionNote = damageMultiplier > 1 ? ' (Coalition Bonus!)' : ''
+          const coalitionNote = damageMultiplier > 1 ? ' (Πολιορκία!)' : ''
           player.logActivity(
-            `⚔️ Χτύπησες ${def?.name}: -${damage} Τοίχος${coalitionNote} (${newWallHp} HP)`, 'warning'
+            `⚔️ Χτύπησες ${def?.name}: -${damage} Επιρροή${coalitionNote} (${newInfluence}/${this.effectiveInfluenceMax(nid)})`, 'warning'
           )
-          useGameStore().addNotification(`⚔️ -${damage} HP στον Τοίχο της ${def?.name}!`, 'info')
+          useGameStore().addNotification(`⚔️ -${damage} Επιρροή στην ${def?.name}!`, 'info')
         }
 
         // Log the attack
@@ -492,7 +524,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
           attacker_username: player.name,
           defender_id: n.ownerId,
           damage_dealt: damage,
-          wall_hp_after: newWallHp,
+          wall_hp_after: newInfluence,
           captured,
           attacked_at: now,
         })
@@ -511,7 +543,17 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       }
     },
 
-    async repairWall(nid, cashAmount) {
+    /**
+     * Boost influence in an owned neighborhood using one of the preset actions:
+     *   'bribe'  → cheap instant boost
+     *   'advert' → mid-tier boost (1h cooldown)
+     *   'guards' → heavy boost (4h cooldown)
+     *   'kep'    → uses Nerve, 6h cooldown
+     */
+    async boostInfluence(nid, boostKey) {
+      const cfg = NEIGHBORHOOD_BOOSTS[boostKey]
+      if (!cfg) return false
+
       const myId = await this._resolveMyUserId()
       const n    = this.neighborhoods[nid]
       if (!n || n.ownerId !== myId) {
@@ -519,99 +561,66 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
         return false
       }
 
-      const player     = usePlayerStore()
-      const cost       = Math.max(REPAIR_CASH_PER_HP, Math.floor(cashAmount))
-      const repairHp   = Math.floor(cost / REPAIR_CASH_PER_HP)
-      const maxHp      = this.effectiveWallMaxHp(nid)
-
-      if (player.cash < cost) {
-        useGameStore().addNotification('Δεν έχεις αρκετά χρήματα.', 'danger')
-        return false
-      }
-      if (n.wallHp >= maxHp) {
-        useGameStore().addNotification('Ο Τοίχος είναι ήδη στο μέγιστο.', 'info')
-        return false
-      }
-
-      const newHp = Math.min(maxHp, n.wallHp + repairHp)
-      player.removeCash(cost)
-
-      try {
-        const { error } = await supabase
-          .from('neighborhood_control')
-          .update({ wall_hp: newHp, updated_at: new Date().toISOString() })
-          .eq('neighborhood_id', nid)
-
-        if (error) throw error
-
-        this.neighborhoods[nid].wallHp = newHp
-        const def = getNeighborhoodById(nid)
-        player.logActivity(
-          `🧱 Επισκευή Τοίχου ${def?.name}: +${repairHp} HP (κόστος ${cost}€)`, 'info'
-        )
-        useGameStore().saveGame()
-        return true
-      } catch (e) {
-        player.addCash(cost) // refund on error
-        console.error('repairWall failed:', e)
-        useGameStore().addNotification('Σφάλμα κατά την επισκευή.', 'danger')
-        return false
-      }
-    },
-
-    // ΚΕΠ Αδειοδότηση: Greek bureaucracy mini-game — 3 Nerve + 200 cash → +50 Wall HP
-    async kepAdeiodotisi(nid) {
-      const myId = await this._resolveMyUserId()
-      const n    = this.neighborhoods[nid]
-      if (!n || n.ownerId !== myId) {
-        useGameStore().addNotification('Δεν είναι δική σου γειτονιά.', 'danger')
-        return false
-      }
-
-      const cd = this.kepCooldowns[nid]
-      if (cd && cd > Date.now()) {
-        useGameStore().addNotification('Το ΚΕΠ είναι κλειστό... αύριο ίσως.', 'info')
+      // Cooldown check
+      const cdRemaining = this.boostCooldownRemaining(nid, boostKey)
+      if (cdRemaining > 0) {
+        useGameStore().addNotification(`${cfg.icon} ${cfg.label}: σε αναμονή.`, 'info')
         return false
       }
 
       const player = usePlayerStore()
-      if (player.resources.nerve.current < KEP_NERVE_COST) {
-        useGameStore().addNotification(`Χρειάζεσαι ${KEP_NERVE_COST} Θράσος για το ΚΕΠ.`, 'danger')
+      if (cfg.nerve > 0 && player.resources.nerve.current < cfg.nerve) {
+        useGameStore().addNotification(`Χρειάζεσαι ${cfg.nerve} Θράσος.`, 'danger')
         return false
       }
-      if (player.cash < KEP_CASH_COST) {
-        useGameStore().addNotification(`Χρειάζεσαι ${KEP_CASH_COST}€ για τα παράβολα.`, 'danger')
+      if (player.cash < cfg.cost) {
+        useGameStore().addNotification(`Χρειάζεσαι ${cfg.cost}€.`, 'danger')
         return false
       }
 
-      const maxHp = this.effectiveWallMaxHp(nid)
-      const newHp = Math.min(maxHp, n.wallHp + KEP_WALL_REPAIR)
+      const maxInfluence = this.effectiveInfluenceMax(nid)
+      if (n.influence >= maxInfluence) {
+        useGameStore().addNotification('Η Επιρροή σου είναι ήδη στο μέγιστο.', 'info')
+        return false
+      }
 
-      player.modifyResource('nerve', -KEP_NERVE_COST)
-      player.removeCash(KEP_CASH_COST)
-      this.kepCooldowns[nid] = Date.now() + KEP_COOLDOWN_MS
+      const newInfluence = Math.min(maxInfluence, n.influence + cfg.boost)
+      const actualGain   = newInfluence - n.influence
+
+      // Charge resources
+      player.removeCash(cfg.cost)
+      if (cfg.nerve > 0) player.modifyResource('nerve', -cfg.nerve)
+
+      // Set cooldown
+      if (cfg.cooldownMs > 0) {
+        if (!this.boostCooldowns[nid]) this.boostCooldowns[nid] = {}
+        this.boostCooldowns[nid][boostKey] = Date.now() + cfg.cooldownMs
+      }
 
       try {
         const { error } = await supabase
           .from('neighborhood_control')
-          .update({ wall_hp: newHp, updated_at: new Date().toISOString() })
+          .update({ wall_hp: newInfluence, updated_at: new Date().toISOString() })
           .eq('neighborhood_id', nid)
 
         if (error) throw error
 
-        this.neighborhoods[nid].wallHp = newHp
+        this.neighborhoods[nid].influence = newInfluence
         const def = getNeighborhoodById(nid)
         player.logActivity(
-          `📋 ΚΕΠ Αδειοδότηση ${def?.name}: +${KEP_WALL_REPAIR} HP Τοίχου — Τελικά η γραφειοκρατία βοήθησε!`,
+          `${cfg.icon} ${cfg.label} ${def?.name}: +${actualGain} Επιρροή (-${cfg.cost}€${cfg.nerve > 0 ? `, -${cfg.nerve} Θράσος` : ''})`,
           'success'
         )
-        useGameStore().addNotification(`📋 ΚΕΠ: +${KEP_WALL_REPAIR} Τοίχος!`, 'success')
+        useGameStore().addNotification(`${cfg.icon} +${actualGain} Επιρροή στην ${def?.name}!`, 'success')
         useGameStore().saveGame()
         return true
       } catch (e) {
-        player.modifyResource('nerve', KEP_NERVE_COST)
-        player.addCash(KEP_CASH_COST)
-        console.error('kepAdeiodotisi failed:', e)
+        // Refund on error
+        player.addCash(cfg.cost)
+        if (cfg.nerve > 0) player.modifyResource('nerve', cfg.nerve)
+        if (this.boostCooldowns[nid]) delete this.boostCooldowns[nid][boostKey]
+        console.error('boostInfluence failed:', e)
+        useGameStore().addNotification('Σφάλμα κατά την ενίσχυση.', 'danger')
         return false
       }
     },
@@ -687,7 +696,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
           .then(() => {})
       } else {
         useGameStore().addNotification(
-          `⚠️ Δεν πλήρωσες Χαράτσι Γειτονιάς (${cost}€)! Ο Τοίχος αποδυναμώνεται.`, 'danger'
+          `⚠️ Δεν πλήρωσες Χαράτσι Γειτονιάς (${cost}€)! Η Επιρροή σου εξασθενεί.`, 'danger'
         )
       }
       this.lastMaintenanceCheck = now
@@ -706,27 +715,29 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       }
       if (expiredIds.length === 0) return
 
-      const def = getNeighborhoodById(expiredIds[0])
       try {
-        await supabase
-          .from('neighborhood_control')
-          .update({
-            owner_id: null,
-            owner_username: '',
-            wall_hp: 1000,
-            captured_at: 0,
-            last_maintenance_paid_at: 0,
-            graffiti: '',
-            updated_at: new Date().toISOString(),
-          })
-          .in('neighborhood_id', expiredIds)
-
+        // Reset each expired neighborhood to its base influence (varies per def)
         for (const id of expiredIds) {
+          const def = getNeighborhoodById(id)
+          const baseInfluence = def?.influenceBaseMax ?? 1000
+          await supabase
+            .from('neighborhood_control')
+            .update({
+              owner_id: null,
+              owner_username: '',
+              wall_hp: baseInfluence,
+              captured_at: 0,
+              last_maintenance_paid_at: 0,
+              graffiti: '',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('neighborhood_id', id)
+
           this.neighborhoods[id] = {
             ...this.neighborhoods[id],
             ownerId: null,
             ownerUsername: '',
-            wallHp: getNeighborhoodById(id)?.wallBaseHp ?? 1000,
+            influence: baseInfluence,
             capturedAt: 0,
             lastMaintenancePaidAt: 0,
             graffiti: '',
@@ -779,7 +790,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
     getSerializable() {
       return {
         attackCooldowns: { ...this.attackCooldowns },
-        kepCooldowns: { ...this.kepCooldowns },
+        boostCooldowns: JSON.parse(JSON.stringify(this.boostCooldowns)),
         lastMaintenanceCheck: this.lastMaintenanceCheck,
         retaliationBonus: this.retaliationBonus ? { ...this.retaliationBonus } : null,
         disreputableUntil: this.disreputableUntil,
@@ -791,7 +802,14 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
     hydrate(data) {
       if (!data) return
       if (data.attackCooldowns) Object.assign(this.attackCooldowns, data.attackCooldowns)
-      if (data.kepCooldowns) Object.assign(this.kepCooldowns, data.kepCooldowns)
+      if (data.boostCooldowns) Object.assign(this.boostCooldowns, data.boostCooldowns)
+      // Backwards-compat: old saves used kepCooldowns map directly
+      if (data.kepCooldowns) {
+        for (const [nid, ts] of Object.entries(data.kepCooldowns)) {
+          if (!this.boostCooldowns[nid]) this.boostCooldowns[nid] = {}
+          this.boostCooldowns[nid].kep = ts
+        }
+      }
       if (data.lastMaintenanceCheck !== undefined) this.lastMaintenanceCheck = data.lastMaintenanceCheck
       if (data.retaliationBonus !== undefined) this.retaliationBonus = data.retaliationBonus
       if (data.disreputableUntil !== undefined) this.disreputableUntil = data.disreputableUntil

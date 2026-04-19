@@ -48,6 +48,7 @@ Pinia stores. All have `getSerializable()` and `hydrate(data)` for save/load.
 | `educationStore.js` | Course tracking. `completedCourses` array, `enrollCourse()` starts timed activity. On completion applies permanent stat/skill bonuses. |
 | `smugglingStore.js` | **Contraband smuggling**: buy contraband cheap in one city, sell in another. Police checkpoint risk on travel (reduced by vehicle avoidance). Earnings go to dirty money. Prices refresh every 4h. Vehicle state: `equippedVehicle`, `ownedVehicles`, `effectiveMaxCargoSlots`. Actions: `buyVehicle()`, `equipVehicle()`, `checkVehicleOnArrival()`. |
 | `territoryStore.js` | **Territory Wars**: tracks control of 7 Greek cities (faction, capturedAt, siegeEndsAt). Syncs via Supabase Realtime. Actions: `fetchTerritories()`, `subscribeRealtime()`, `initiateSiege()`, `joinSiege()`, `resolveSiege()`, `calculateTaxOnPurchase()`. Tax rate: 2% on purchases/travel in controlled cities. |
+| `neighborhoodStore.js` | **Κυριαρχία στις Γειτονιές** (individual player control of 15 Athens neighborhoods, distinct from faction-level territory wars). Tracks `influence` per neighborhood (stored in DB as `wall_hp` for legacy reasons). Actions: `fetchNeighborhoods()`, `subscribeRealtime()`, `claimEmpty()`, `attackNeighborhood()`, `boostInfluence(nid, key)` with presets `bribe`/`advert`/`guards`/`kep`, `setGraffiti()`, `tickIncome()`. Bonus aggregation, spread penalty, faction bonus, retaliation system, coalition detection, filotimo/disreputable penalty, inactivity expiry, daily maintenance. Exports `NEIGHBORHOOD_BOOSTS` config map. |
 | `heistStore.js` | **Group Heists**: cooperative 3-player PvE via Supabase Realtime lobbies. State: `activeLobbyId`, `myRole`, `lobby`, `publicLobbies`, `heistHistory`, `heistCooldowns`. Actions: `createLobby()`, `joinLobby()`, `leaveLobby()`, `startHeist()`, `submitRoll()`. Rewards split equally (dirty money + Κέβλαρ). |
 | `weeklyEventStore.js` | **Weekly events**: 9 rotating game-wide events (Double XP, Police Operation, Discounts, Blood Moon, etc.) that change every Monday. Applies multipliers across all systems. |
 
@@ -133,6 +134,7 @@ Static game data. Import and read — never mutate at runtime.
 | `weeklyEvents.js` | 9 weekly event definitions with multipliers and affected systems |
 | `vehicles.js` | **NEW** — 4 smuggling vehicles (Παπάκι/Βαν/Φορτηγό/Ταχύπλοο) with price, cargoBonus, avoidance, unlockLevel. `SEA_ROUTE_CITIES` constant. `getVehicleById()` helper. |
 | `heists.js` | **NEW** — `HEIST_TARGETS` (Εθνική Τράπεζα, Μουσείο Ακρόπολης) and `HEIST_ROLES` (Χάκερ/Εκτελεστής/Επιχειρηματίας). Helper functions `getHeistTargetById()`, `getHeistRoleById()`. |
+| `neighborhoods.js` | 15 Athens neighborhoods for the Κυριαρχία system: id, name, icon, description, `influenceBaseMax`, bonus (type + label + numeric fields). `getNeighborhoodById(id)` helper. |
 
 ---
 
@@ -213,6 +215,7 @@ One Vue component per page/route.
 | View | Route | Description |
 |------|-------|-------------|
 | `TerritoryView.vue` | `/territory` | 7-city grid showing controlling faction, siege countdown, Πολιορκία button (officer/leader only), combined STR+DEF power bar. Realtime updates. `allowIncapacitated: true`. |
+| `NeighborhoodView.vue` | `/neighborhoods` | 15-neighborhood grid for Κυριαρχία. Per card: Επιρροή bar, owner badge, graffiti, last-attack info. Preset boost buttons (Δωροδοκίες/Διαφήμιση/Φρουροί/ΚΕΠ) instead of freeform repair input, each with explicit cost+benefit. Claim/Attack buttons with tooltips explaining mechanics. Active bonuses summary. Collapsible help panel. |
 | `HeistView.vue` | `/heist` | Two top-level tabs: **Ομαδικό Ριφιφί** (browse/create/history lobbies, active lobby view) and **World Boss** (global cooperative raid, damage leaderboard). `/world-boss` redirects here. `allowIncapacitated: false`. |
 | `PetView.vue` | `/pets` | Pet management: adopt, feed, play, train, view bonuses, level progress |
 | `EliteMenu.vue` | `/elite` | Elite Ascension hub (Level 30+): Shadow Control, Networking Tree, Political Influence, Legal Fronts |
@@ -316,6 +319,7 @@ One Vue component per page/route.
 | `supabase_friends_and_pvp_fix.sql` | Creates `friends` table + `friends_with_profiles` view + open SELECT policy on profiles for PvP/search |
 | `supabase_attack_logs.sql` | Creates `attack_logs` table for PvP battle history |
 | `supabase_territory_heist_schema.sql` | **NEW** — Creates `territory_control`, `siege_participants`, `heist_lobbies`, `heist_members` tables with RLS policies. Seeds 7 neutral city rows. **Must enable Realtime** for territory_control, heist_lobbies, heist_members in Supabase dashboard. |
+| `supabase_neighborhood_schema.sql` | Creates `neighborhood_control` (15 Athens neighborhoods with owner + influence, stored as `wall_hp` column) and `neighborhood_attack_log` (per-hit log for coalition detection). RLS policies, indexes. **Must enable Realtime** for `neighborhood_control`. |
 
 ---
 

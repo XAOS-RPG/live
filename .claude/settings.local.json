@@ -6,7 +6,8 @@
       "Bash(npm run *)",
       "Read(//c/Users/George/Desktop/xaos/ github/live/src/stores/**)",
       "Read(//c/Users/George/Desktop/xaos/ github/live/src/lib/**)",
-      "Read(//c/Users/George/Desktop/xaos/ github/live/src/data/**)"
+      "Read(//c/Users/George/Desktop/xaos/ github/live/src/data/**)",
+      "Bash(grep -E '\\\\.\\(js|vue|ts\\)$')"
     ]
   }
 }

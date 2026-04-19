@@ -1,6 +1,9 @@
 /**
  * Athens neighborhoods for the Κυριαρχία στις Γειτονιές system.
  * Each neighborhood can be owned by one player and grants the owner unique bonuses.
+ *
+ * influenceBaseMax = the max "Επιρροή" (Influence/control) the owner has over the
+ * neighborhood. Attacks erode it. When it hits 0, the owner loses control.
  */
 
 export const neighborhoods = [
@@ -9,7 +12,7 @@ export const neighborhoods = [
     name: 'Κορυδαλλός',
     icon: '⛓️',
     description: 'Έδρα των Φυλακών Κορυδαλλού. Εδώ κρύβεται η τέχνη της αποφυλάκισης.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'prison',
       label: '-20% χρόνος Φυλακής, +25% ταχύτητα Bust',
@@ -22,7 +25,7 @@ export const neighborhoods = [
     name: 'Πειραιάς',
     icon: '⚓',
     description: 'Το μεγαλύτερο λιμάνι. Λαθρεμπόριο χωρίς σύνορα.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'smuggling',
       label: '-20% ρίσκο σύλληψης στο Λαθρεμπόριο',
@@ -34,7 +37,7 @@ export const neighborhoods = [
     name: 'Κερατσίνι',
     icon: '🏭',
     description: 'Βιομηχανική ζώνη. Φθηνά υλικά, γρήγορη κατασκευή.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'crafting',
       label: '-15% κόστος Crafting',
@@ -46,7 +49,7 @@ export const neighborhoods = [
     name: 'Γλυφάδα',
     icon: '🏖️',
     description: 'Βίλες και clean money. Παθητικό εισόδημα από την αστή ζωή.',
-    wallBaseHp: 1200,
+    influenceBaseMax: 1200,
     bonus: {
       type: 'income',
       label: '+200 €/ώρα παθητικό εισόδημα',
@@ -58,7 +61,7 @@ export const neighborhoods = [
     name: 'Κηφισιά',
     icon: '💎',
     description: 'Το πιο ακριβό προάστιο. Λεφτά κάνουν λεφτά.',
-    wallBaseHp: 1200,
+    influenceBaseMax: 1200,
     bonus: {
       type: 'income',
       label: '+300 €/ώρα παθητικό εισόδημα',
@@ -70,7 +73,7 @@ export const neighborhoods = [
     name: 'Ομόνοια',
     icon: '🎲',
     description: 'Η σκληρή καρδιά της Αθήνας. Σπάνια αντικείμενα κυκλοφορούν εδώ.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'drops',
       label: '+30% drop rate σπάνιων αντικειμένων',
@@ -82,7 +85,7 @@ export const neighborhoods = [
     name: 'Νίκαια',
     icon: '🔧',
     description: 'Εργατική περιοχή. Σπίτι μαστόρων και τεχνιτών.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'crafting',
       label: '-15% χρόνος Crafting',
@@ -94,7 +97,7 @@ export const neighborhoods = [
     name: 'Αιγάλεω',
     icon: '⚙️',
     description: 'Βιομηχανικό κέντρο. Αγοράζεις όπλα σαν σούπερ μάρκετ.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'weapons',
       label: '-10% τιμή όπλων στο κατάστημα',
@@ -106,7 +109,7 @@ export const neighborhoods = [
     name: 'Εξάρχεια',
     icon: '✊',
     description: 'Αναρχική καρδιά. Η αστυνομία αποφεύγει να μπει.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'crime',
       label: '+5% επιτυχία Εγκλήματος, -25% ανίχνευση αστυνομίας',
@@ -119,7 +122,7 @@ export const neighborhoods = [
     name: 'Μοναστηράκι',
     icon: '🧿',
     description: 'Παζάρι τουριστών. Πουλάς τα πάντα ακριβά.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'market',
       label: '+20% τιμή πώλησης αντικειμένων',
@@ -131,7 +134,7 @@ export const neighborhoods = [
     name: 'Κολωνός',
     icon: '🗡️',
     description: 'Σκληρή γειτονιά. Εδώ μεγαλώνουν οι καλύτεροι εγκληματίες.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'crime',
       label: '+15% επιτυχία Εγκλήματος',
@@ -143,7 +146,7 @@ export const neighborhoods = [
     name: 'Μεταξουργείο',
     icon: '💊',
     description: 'Υπόγεια αγορά. Τα ανώτερα εγκλήματα αποδίδουν περισσότερο.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'crime',
       label: '+20% ανταμοιβή Εγκλήματος Tier 4+',
@@ -155,7 +158,7 @@ export const neighborhoods = [
     name: 'Κυψέλη',
     icon: '🐝',
     description: 'Πολυπολιτισμική γειτονιά. Μαθαίνεις γρήγορα εδώ.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'xp',
       label: '+10% XP εγκλήματος',
@@ -167,7 +170,7 @@ export const neighborhoods = [
     name: 'Βύρωνας',
     icon: '🏋️',
     description: 'Γειτονιά των αθλητών. Το γυμναστήριο αποδίδει καλύτερα.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'gym',
       label: '+10% κέρδη Γυμναστηρίου',
@@ -179,7 +182,7 @@ export const neighborhoods = [
     name: 'Παγκράτι',
     icon: '🏥',
     description: 'Ιστορική περιοχή κοντά σε νοσοκομεία. Ανάρρωση πιο γρήγορα.',
-    wallBaseHp: 1000,
+    influenceBaseMax: 1000,
     bonus: {
       type: 'hospital',
       label: '-15% χρόνος Νοσοκομείου',

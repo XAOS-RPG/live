@@ -5,6 +5,19 @@
       Κατάλαβε γειτονιές της Αθήνας για μοναδικά bonuses. Μέγιστο {{ MAX_OWNED }} γειτονιές ανά παίκτη.
     </p>
 
+    <!-- How it works -->
+    <details class="card help-card">
+      <summary>❓ Πώς λειτουργεί</summary>
+      <ul class="help-list">
+        <li>Κάθε γειτονιά έχει <strong>Επιρροή</strong> — πόσο σταθερά την ελέγχει ο ιδιοκτήτης. Όταν φτάσει στο 0, χάνει τον έλεγχο.</li>
+        <li><strong>Επίθεση</strong>: κοστίζει {{ ATTACK_NERVE_COST }} Θράσος και μειώνει την Επιρροή του ιδιοκτήτη (cooldown 2ώρες ανά γειτονιά).</li>
+        <li><strong>Ενίσχυση Επιρροής</strong>: 4 διαφορετικές δράσεις με διαφορετικό κόστος και αποτέλεσμα (δες παρακάτω σε κάθε γειτονιά).</li>
+        <li><strong>Bonuses</strong>: κάθε γειτονιά δίνει μοναδικό passive bonus στον ιδιοκτήτη.</li>
+        <li><strong>Ημερήσιο Χαράτσι</strong>: αν δεν πληρώσεις 7 μέρες, η γειτονιά γίνεται ξανά αδέσμευτη.</li>
+        <li><strong>Αντίποινα</strong>: όταν σου επιτεθούν, παίρνεις +25% επίθεση κατά του δράστη για 48 ώρες.</li>
+      </ul>
+    </details>
+
     <!-- Status Bar -->
     <div class="status-bar card">
       <div class="status-item">
@@ -29,7 +42,7 @@
     <div v-if="nhStore.retaliationActive" class="alert alert-warning">
       🔥 <strong>Αντίποινα ενεργά!</strong>
       +25% επίθεση κατά <strong>{{ nhStore.retaliationBonus.targetUsername }}</strong>
-      — {{ formatMs(nhStore.retaliationBonus.endsAt - Date.now()) }} remaining
+      — απομένουν {{ formatMs(nhStore.retaliationBonus.endsAt - Date.now()) }}
     </div>
 
     <!-- Disreputable Warning -->
@@ -51,23 +64,26 @@
           <span class="nc-icon">{{ def.icon }}</span>
           <div class="nc-info">
             <strong class="nc-name">{{ def.name }}</strong>
-            <span class="nc-bonus-tag" :class="`bonus-${def.bonus.type}`">
+            <span class="nc-bonus-tag" :class="`bonus-${def.bonus.type}`" :title="def.description">
               {{ def.bonus.label }}
             </span>
           </div>
         </div>
 
-        <!-- Wall HP Bar -->
-        <div class="nc-wall">
-          <div class="wall-label">
-            <span>🧱 Τοίχος</span>
-            <span class="wall-hp-text">{{ getData(def.id).wallHp }} / {{ nhStore.effectiveWallMaxHp(def.id) }}</span>
+        <!-- Description -->
+        <div class="nc-description text-muted">{{ def.description }}</div>
+
+        <!-- Influence Bar -->
+        <div class="nc-influence">
+          <div class="influence-label">
+            <span>👑 Επιρροή</span>
+            <span class="influence-text">{{ getData(def.id).influence }} / {{ nhStore.effectiveInfluenceMax(def.id) }}</span>
           </div>
-          <div class="wall-bar">
+          <div class="influence-bar" :title="`${Math.round(influencePercent(def.id))}% επιρροή — όταν φτάσει στο 0 χάνεται ο έλεγχος`">
             <div
-              class="wall-fill"
-              :style="{ width: wallPercent(def.id) + '%' }"
-              :class="wallColor(def.id)"
+              class="influence-fill"
+              :style="{ width: influencePercent(def.id) + '%' }"
+              :class="influenceColor(def.id)"
             />
           </div>
         </div>
@@ -80,7 +96,7 @@
             </span>
             <span class="owner-level text-muted">Lv{{ getData(def.id).ownerLevel }}</span>
           </template>
-          <span v-else class="text-muted">Αδέσμευτη</span>
+          <span v-else class="text-muted">🏳️ Αδέσμευτη</span>
         </div>
 
         <!-- Graffiti -->
@@ -96,35 +112,36 @@
 
         <!-- Actions: Owner -->
         <div v-if="isOwn(def.id)" class="nc-actions">
-          <!-- Repair Wall -->
-          <div class="repair-row">
-            <input
-              v-model.number="repairInputs[def.id]"
-              type="number"
-              class="input-sm"
-              placeholder="€ επισκευής"
-              min="5"
-              :max="playerStore.cash"
-            />
+          <div class="boost-section">
+            <div class="boost-title">💪 Ενίσχυση Επιρροής</div>
             <button
-              class="btn btn-sm btn-outline"
-              :disabled="!repairInputs[def.id] || repairInputs[def.id] < 5"
-              @click="doRepair(def.id)"
-            >🧱 Επισκευή</button>
+              v-for="(cfg, key) in BOOSTS"
+              :key="key"
+              class="btn btn-sm boost-btn"
+              :class="{ 'boost-disabled': !canAffordBoost(def.id, key) || boostCooldown(def.id, key) > 0 }"
+              :disabled="!canAffordBoost(def.id, key) || boostCooldown(def.id, key) > 0 || atMaxInfluence(def.id)"
+              :title="boostTooltip(cfg, def.id)"
+              @click="doBoost(def.id, key)"
+            >
+              <span class="boost-icon">{{ cfg.icon }}</span>
+              <span class="boost-content">
+                <span class="boost-label">{{ cfg.label }}</span>
+                <span class="boost-meta">
+                  <span class="boost-cost">
+                    {{ formatCash(cfg.cost) }}<span v-if="cfg.nerve > 0"> + {{ cfg.nerve }} Θράσος</span>
+                  </span>
+                  <span class="boost-arrow">→</span>
+                  <span class="boost-gain">+{{ cfg.boost }} Επιρροή</span>
+                </span>
+              </span>
+              <span v-if="boostCooldown(def.id, key) > 0" class="cooldown-badge">
+                {{ formatMs(boostCooldown(def.id, key)) }}
+              </span>
+            </button>
+            <div v-if="atMaxInfluence(def.id)" class="hint-text text-muted">
+              ✓ Επιρροή στο μέγιστο
+            </div>
           </div>
-
-          <!-- ΚΕΠ -->
-          <button
-            class="btn btn-sm btn-outline kep-btn"
-            :disabled="nhStore.kepCooldownRemaining(def.id) > 0"
-            @click="doKep(def.id)"
-            :title="`${KEP_NERVE_COST} Θράσος + ${KEP_CASH_COST}€ → +50 Τοίχος`"
-          >
-            📋 ΚΕΠ Αδειοδότηση
-            <span v-if="nhStore.kepCooldownRemaining(def.id) > 0" class="cooldown-badge">
-              {{ formatMs(nhStore.kepCooldownRemaining(def.id)) }}
-            </span>
-          </button>
 
           <!-- Graffiti -->
           <div class="graffiti-row">
@@ -137,6 +154,7 @@
             />
             <button
               class="btn btn-sm btn-outline"
+              title="Άσε το σήμα σου στη γειτονιά (ορατό σε όλους)"
               @click="doGraffiti(def.id)"
             >🎨</button>
           </div>
@@ -149,9 +167,10 @@
             <button
               class="btn btn-sm btn-success"
               :disabled="!nhStore.canClaim(def.id).can"
+              :title="`Κατάλαβε αυτή τη γειτονιά. Ξεκινάς με 30% Επιρροή. Δωρεάν.`"
               @click="doClaim(def.id)"
             >
-              🏴 Κατάλαβε
+              🏴 Ανάλαβε τον Έλεγχο
             </button>
             <span v-if="!nhStore.canClaim(def.id).can" class="text-muted hint-text">
               {{ claimHint(def.id) }}
@@ -163,14 +182,15 @@
             <button
               class="btn btn-sm btn-danger"
               :disabled="!nhStore.canAttack(def.id).can"
+              :title="`Επίθεση στη γειτονιά. Κόστος: ${ATTACK_NERVE_COST} Θράσος. Cooldown: 2ώρες. Όταν η Επιρροή φτάσει στο 0 → την κατακτάς.`"
               @click="doAttack(def.id)"
             >
-              ⚔️ Επίθεση
+              ⚔️ Επίθεση ({{ ATTACK_NERVE_COST }} Θράσος)
               <span v-if="nhStore.retaliationActive && nhStore.retaliationBonus?.targetId === getData(def.id).ownerId"
-                class="retaliation-star">🔥</span>
+                class="retaliation-star" title="Αντίποινα ενεργά: +25% damage">🔥</span>
             </button>
             <span v-if="nhStore.attackCooldownRemaining(def.id) > 0" class="cooldown-badge">
-              {{ formatMs(nhStore.attackCooldownRemaining(def.id)) }}
+              ⏱ {{ formatMs(nhStore.attackCooldownRemaining(def.id)) }}
             </span>
             <span v-else-if="!nhStore.canAttack(def.id).can" class="text-muted hint-text">
               {{ attackHint(def.id) }}
@@ -197,20 +217,24 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useNeighborhoodStore } from '../stores/neighborhoodStore'
+import {
+  useNeighborhoodStore,
+  NEIGHBORHOOD_BOOSTS,
+  ATTACK_NERVE_COST_PUBLIC,
+  NEIGHBORHOOD_MAX_OWNED,
+} from '../stores/neighborhoodStore'
 import { usePlayerStore } from '../stores/playerStore'
 import { neighborhoods } from '../data/neighborhoods'
 
 const nhStore     = useNeighborhoodStore()
 const playerStore = usePlayerStore()
 
-const MAX_OWNED    = 3
-const KEP_NERVE_COST = 3
-const KEP_CASH_COST  = 200
+const MAX_OWNED         = NEIGHBORHOOD_MAX_OWNED
+const ATTACK_NERVE_COST = ATTACK_NERVE_COST_PUBLIC
+const BOOSTS            = NEIGHBORHOOD_BOOSTS
 
 const allNeighborhoods = neighborhoods
-const repairInputs  = ref({})
-const graffitiInputs = ref({})
+const graffitiInputs   = ref({})
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 
@@ -226,28 +250,27 @@ const activeBonuses = computed(() => {
 function getData(nid) {
   return nhStore.neighborhoods[nid] ?? {
     ownerId: null, ownerUsername: '', ownerLevel: 1,
-    wallHp: 1000, capturedAt: 0, lastAttackedAt: 0,
+    influence: 1000, capturedAt: 0, lastAttackedAt: 0,
     lastAttackerUsername: '', graffiti: '',
   }
 }
 
 function isOwn(nid) {
-  // compare via myNeighborhoods ids
   return nhStore.myNeighborhoods.some(n => n.id === nid)
 }
 
-function wallPercent(nid) {
+function influencePercent(nid) {
   const n   = getData(nid)
-  const max = nhStore.effectiveWallMaxHp(nid)
+  const max = nhStore.effectiveInfluenceMax(nid)
   if (max <= 0) return 0
-  return Math.max(0, Math.min(100, (n.wallHp / max) * 100))
+  return Math.max(0, Math.min(100, (n.influence / max) * 100))
 }
 
-function wallColor(nid) {
-  const pct = wallPercent(nid)
-  if (pct > 60) return 'wall-green'
-  if (pct > 30) return 'wall-yellow'
-  return 'wall-red'
+function influenceColor(nid) {
+  const pct = influencePercent(nid)
+  if (pct > 60) return 'influence-green'
+  if (pct > 30) return 'influence-yellow'
+  return 'influence-red'
 }
 
 function cardClass(nid) {
@@ -259,7 +282,7 @@ function cardClass(nid) {
 
 function attackHint(nid) {
   const reason = nhStore.canAttack(nid).reason
-  if (reason === 'no_nerve') return `Χρειάζεσαι ${8} Θράσος`
+  if (reason === 'no_nerve') return `Χρειάζεσαι ${ATTACK_NERVE_COST} Θράσος`
   if (reason === 'cooldown') return 'Σε cooldown'
   return ''
 }
@@ -268,6 +291,37 @@ function claimHint(nid) {
   const reason = nhStore.canClaim(nid).reason
   if (reason === 'cap') return `Μέγιστο ${MAX_OWNED} γειτονιές`
   return ''
+}
+
+function boostCooldown(nid, key) {
+  return nhStore.boostCooldownRemaining(nid, key)
+}
+
+function canAffordBoost(nid, key) {
+  const cfg = BOOSTS[key]
+  if (!cfg) return false
+  if (playerStore.cash < cfg.cost) return false
+  if (cfg.nerve > 0 && playerStore.resources.nerve.current < cfg.nerve) return false
+  return true
+}
+
+function atMaxInfluence(nid) {
+  const n = getData(nid)
+  return n.influence >= nhStore.effectiveInfluenceMax(nid)
+}
+
+function boostTooltip(cfg, nid) {
+  const lines = [cfg.desc]
+  lines.push(`Κόστος: ${cfg.cost}€${cfg.nerve > 0 ? ` + ${cfg.nerve} Θράσος` : ''}`)
+  lines.push(`Όφελος: +${cfg.boost} Επιρροή`)
+  if (cfg.cooldownMs > 0) {
+    const hours = cfg.cooldownMs / 3600000
+    lines.push(`Cooldown: ${hours}ώρα${hours > 1 ? 'ς' : ''}`)
+  } else {
+    lines.push('Χωρίς cooldown')
+  }
+  if (atMaxInfluence(nid)) lines.push('⚠️ Η Επιρροή είναι στο μέγιστο')
+  return lines.join('\n')
 }
 
 function timeAgo(ts) {
@@ -333,15 +387,8 @@ async function doAttack(nid) {
   await nhStore.attackNeighborhood(nid)
 }
 
-async function doRepair(nid) {
-  const amount = repairInputs.value[nid]
-  if (!amount || amount < 5) return
-  const ok = await nhStore.repairWall(nid, amount)
-  if (ok) repairInputs.value[nid] = null
-}
-
-async function doKep(nid) {
-  await nhStore.kepAdeiodotisi(nid)
+async function doBoost(nid, key) {
+  await nhStore.boostInfluence(nid, key)
 }
 
 async function doGraffiti(nid) {
@@ -354,7 +401,23 @@ async function doGraffiti(nid) {
 
 <style scoped>
 .neighborhoods-page { padding-bottom: 2rem; }
-.page-subtitle { margin-top: -0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; }
+.page-subtitle { margin-top: -0.5rem; margin-bottom: 1rem; font-size: 0.85rem; }
+
+.help-card { margin-bottom: 1rem; padding: 0.75rem 1rem; }
+.help-card summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  user-select: none;
+}
+.help-list {
+  margin: 0.6rem 0 0 1.2rem;
+  padding: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.help-list li { margin-bottom: 0.25rem; }
 
 .status-bar {
   display: flex;
@@ -378,7 +441,7 @@ async function doGraffiti(nid) {
 
 .neighborhoods-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
@@ -389,8 +452,8 @@ async function doGraffiti(nid) {
   flex-direction: column;
   gap: 0.6rem;
 }
-.neighborhood-card.owned  { border-left-color: #4CAF50; }
-.neighborhood-card.enemy  { border-left-color: #E53935; }
+.neighborhood-card.owned   { border-left-color: #4CAF50; }
+.neighborhood-card.enemy   { border-left-color: #E53935; }
 .neighborhood-card.neutral { border-left-color: #666; }
 
 .nc-header {
@@ -409,6 +472,7 @@ async function doGraffiti(nid) {
   border: 1px solid currentColor;
   white-space: normal;
   line-height: 1.4;
+  cursor: help;
 }
 .bonus-prison    { color: #9C27B0; }
 .bonus-smuggling { color: #00BCD4; }
@@ -422,19 +486,26 @@ async function doGraffiti(nid) {
 .bonus-gym       { color: #8BC34A; }
 .bonus-hospital  { color: #00E5FF; }
 
-.nc-wall { display: flex; flex-direction: column; gap: 0.3rem; }
-.wall-label { display: flex; justify-content: space-between; font-size: 0.78rem; }
-.wall-hp-text { color: var(--text-muted); }
-.wall-bar {
-  height: 6px;
-  background: var(--border-color);
-  border-radius: 3px;
-  overflow: hidden;
+.nc-description {
+  font-size: 0.75rem;
+  font-style: italic;
+  line-height: 1.4;
 }
-.wall-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
-.wall-green  { background: #4CAF50; }
-.wall-yellow { background: #FF9800; }
-.wall-red    { background: #E53935; animation: pulse-red 1.5s infinite; }
+
+.nc-influence { display: flex; flex-direction: column; gap: 0.3rem; }
+.influence-label { display: flex; justify-content: space-between; font-size: 0.78rem; }
+.influence-text { color: var(--text-muted); }
+.influence-bar {
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: help;
+}
+.influence-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+.influence-green  { background: #4CAF50; }
+.influence-yellow { background: #FF9800; }
+.influence-red    { background: #E53935; animation: pulse-red 1.5s infinite; }
 
 @keyframes pulse-red {
   0%, 100% { opacity: 1; }
@@ -467,7 +538,62 @@ async function doGraffiti(nid) {
 
 .nc-actions { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.25rem; }
 
-.repair-row,
+/* Boost Section */
+.boost-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: rgba(255,255,255,0.03);
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+.boost-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.1rem;
+}
+.boost-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background 0.15s, border-color 0.15s;
+  font-size: 0.78rem;
+  position: relative;
+}
+.boost-btn:not(:disabled):hover {
+  background: rgba(76,175,80,0.10);
+  border-color: #4CAF50;
+}
+.boost-btn:disabled,
+.boost-btn.boost-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.boost-icon { font-size: 1.1rem; flex-shrink: 0; }
+.boost-content { display: flex; flex-direction: column; flex: 1; gap: 0.1rem; }
+.boost-label { font-weight: 600; font-size: 0.8rem; }
+.boost-meta {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.boost-cost { color: #FF9800; }
+.boost-arrow { color: var(--text-muted); }
+.boost-gain { color: #4CAF50; font-weight: 600; }
+
 .graffiti-row {
   display: flex;
   gap: 0.4rem;
@@ -483,12 +609,10 @@ async function doGraffiti(nid) {
 }
 .input-sm:focus { outline: 1px solid var(--accent-color); }
 
-.kep-btn { position: relative; font-size: 0.78rem; }
-
 .cooldown-badge {
   font-size: 0.7rem;
   color: var(--text-muted);
-  margin-left: 0.3rem;
+  margin-left: auto;
 }
 
 .hint-text { font-size: 0.72rem; }
