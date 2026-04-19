@@ -14,6 +14,7 @@ import { useCraftingStore } from './craftingStore'
 import { useCardStore } from './cardStore'
 import { useFactionStore } from './factionStore'
 import { useEncounterStore } from './encounterStore'
+import { useNeighborhoodStore } from './neighborhoodStore'
 
 export const useCrimeStore = defineStore('crime', {
   state: () => ({
@@ -84,6 +85,10 @@ export const useCrimeStore = defineStore('crime', {
       successRate = Math.min(0.98,
         (successRate * usePetStore().crimeSuccessBonus * useCardStore().crimeSuccessBonus)
         + useFactionStore().fortressCrimeSuccessBonus)
+      // Neighborhood bonuses: Εξάρχεια, Κολωνός, Μεταξουργείο + Διαβόητος penalty
+      const nbStore = useNeighborhoodStore()
+      successRate = Math.min(0.98, successRate + nbStore.myBonuses.crimeSuccessBonus)
+      if (nbStore.isDisreputable) successRate = Math.max(0.05, successRate - 0.05)
       const { roll, targetRoll, success: succeeded } = rollD6(successRate)
 
       const preRolled = { success: succeeded, roll, targetRoll, successRate, variantId }
@@ -92,10 +97,14 @@ export const useCrimeStore = defineStore('crime', {
         const reward = calculateCrimeReward(effective)
         const travelStore = useTravelStore()
         const weeklyEvent = useWeeklyEventStore()
+        const nbBonuses = nbStore.myBonuses
+        const highTierMult = (effective.tier >= 4 && nbBonuses.highTierCrimeBonus > 0)
+          ? (1 + nbBonuses.highTierCrimeBonus) : 1
         const locationCash = Math.floor(reward.cash
           * travelStore.crimeRewardMultiplier
           * weeklyEvent.crimeRewardMultiplier
-          * useCardStore().crimeCashBonus)
+          * useCardStore().crimeCashBonus
+          * highTierMult)
 
         // Guaranteed item pool (e.g. shoplifting 'item' variant) or random drop
         let droppedItemId = null
@@ -106,9 +115,10 @@ export const useCrimeStore = defineStore('crime', {
           droppedItemId = rollItemDrop(effective.possibleItemDrops)
         }
 
+        const xpMult = 1 + (nbBonuses.crimeXpBonus ?? 0)
         preRolled.rewards = {
           cash: locationCash,
-          crimeXP: reward.crimeXP,
+          crimeXP: Math.floor(reward.crimeXP * xpMult),
           xp: reward.xp,
           filotimoChange: crime.filotimoChange,
           droppedItemId,

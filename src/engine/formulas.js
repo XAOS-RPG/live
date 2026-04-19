@@ -256,6 +256,30 @@ export function rollD6(successRate) {
   return { roll, targetRoll: target, success }
 }
 
+// ── Neighborhood Wall Mechanics ───────────────────────────────────────────────
+
+/**
+ * Damage dealt to a neighborhood wall per attack.
+ * Based on attacker strength + dexterity with variance.
+ */
+export function calculateWallDamage(attackerStats) {
+  const base     = (attackerStats.strength ?? 5) * 3
+  const dexBonus = (attackerStats.dexterity ?? 5) * 0.5
+  const variance = 0.85 + Math.random() * 0.30
+  return Math.max(10, Math.floor((base + dexBonus) * variance))
+}
+
+/**
+ * Filotimo penalty for attacking a much weaker neighborhood owner.
+ * Returns { filotimoPenalty, disreputable }.
+ */
+export function calculateFilotimoAttackPenalty(attackerLevel, defenderLevel) {
+  const diff = attackerLevel - defenderLevel
+  if (diff > 30) return { filotimoPenalty: 10, disreputable: true }
+  if (diff > 20) return { filotimoPenalty: 5, disreputable: false }
+  return { filotimoPenalty: 0, disreputable: false }
+}
+
 /** @deprecated Use rollD6 instead */
 export function rollD10(successRate) {
   const success = Math.random() < successRate

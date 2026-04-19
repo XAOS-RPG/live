@@ -275,6 +275,12 @@ const routes = [
     meta: { allowIncapacitated: true }
   },
   {
+    path: '/neighborhoods',
+    name: 'neighborhoods',
+    component: () => import('../views/NeighborhoodView.vue'),
+    meta: { allowIncapacitated: true }
+  },
+  {
     path: '/heist',
     name: 'heist',
     component: () => import('../views/HeistView.vue'),
