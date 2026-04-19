@@ -37,6 +37,7 @@ import { useVolunteerStore } from './volunteerStore'
 import { useEncounterStore } from './encounterStore'
 import { useTerritoryStore } from './territoryStore'
 import { useHeistStore } from './heistStore'
+import { useNeighborhoodStore } from './neighborhoodStore'
 
 let toastId = 0
 let _saveTimer = null
@@ -154,6 +155,7 @@ export const useGameStore = defineStore('game', {
           volunteer: useVolunteerStore().getSerializable(),
           territory: useTerritoryStore().getSerializable(),
           heist: useHeistStore().getSerializable(),
+          neighborhood: useNeighborhoodStore().getSerializable(),
         }
       }
     },
@@ -199,6 +201,11 @@ export const useGameStore = defineStore('game', {
         // Territory Wars: fetch current ownership and subscribe to realtime
         useTerritoryStore().fetchTerritories().then(() => {
           useTerritoryStore().subscribeRealtime()
+        })
+
+        // Neighborhood Control: fetch and subscribe
+        useNeighborhoodStore().fetchNeighborhoods().then(() => {
+          useNeighborhoodStore().subscribeRealtime()
         })
 
         // Heist: re-subscribe if player was in an active lobby
@@ -252,6 +259,7 @@ export const useGameStore = defineStore('game', {
       if (s.volunteer) useVolunteerStore().hydrate(s.volunteer)
       if (s.territory) useTerritoryStore().hydrate(s.territory)
       if (s.heist) useHeistStore().hydrate(s.heist)
+      if (s.neighborhood) useNeighborhoodStore().hydrate(s.neighborhood)
     },
 
     async exportSave() {
@@ -343,6 +351,9 @@ export const useGameStore = defineStore('game', {
         const eliteStore = useEliteStore()
         eliteStore.tickHenchmen(now)
         eliteStore.tickInfluence(delta)
+
+        // Neighborhood passive income (Γλυφάδα, Κηφισιά)
+        useNeighborhoodStore().tickIncome(delta)
 
         // Auction expiry + NPC bidding
         useAuctionStore().tickAuctions(now)
