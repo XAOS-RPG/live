@@ -254,7 +254,7 @@ async function loadWorldNews() {
     if (completedHeists && completedHeists.length > 0) {
       for (const heist of completedHeists.slice(0, 2)) {
         const timeAgo = formatAgo(new Date(heist.updated_at).getTime())
-        const memberNames = heist.members ? heist.members.map((m: any) => m.username).join(', ') : 'Unknown'
+        const memberNames = heist.members ? heist.members.map(m => m.username).join(', ') : 'Unknown'
         const targetNames = ['Τράπεζα', 'Αρχαιολογικό Μουσείο', 'Κοσμημάτων κατάστημα']
         const targetName = targetNames[heist.target_id % targetNames.length] || 'Στόχος'
 
