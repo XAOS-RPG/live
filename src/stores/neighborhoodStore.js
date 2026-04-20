@@ -18,7 +18,6 @@ import { calculateInfluenceDamage, calculateFilotimoAttackPenalty } from '../eng
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const NEIGHBORHOOD_IDS     = neighborhoods.map(n => n.id)
-const MAX_OWNED            = 3
 const ATTACK_NERVE_COST    = 8
 const ATTACK_COOLDOWN_MS   = 2 * 60 * 60 * 1000    // 2 hours per neighborhood
 
@@ -57,7 +56,6 @@ export const NEIGHBORHOOD_BOOSTS = {
   kep:     { cost: KEP_CASH_COST, boost: KEP_INFLUENCE_BOOST, nerve: KEP_NERVE_COST, cooldownMs: KEP_COOLDOWN_MS, icon: '📋', label: 'ΚΕΠ Αδειοδότηση',         desc: 'Πάμε ΚΕΠ για άδεια λειτουργίας — η γραφειοκρατία βοηθάει.' },
 }
 export const ATTACK_NERVE_COST_PUBLIC = ATTACK_NERVE_COST
-export const NEIGHBORHOOD_MAX_OWNED   = MAX_OWNED
 
 function makeEmptyNeighborhoods() {
   return Object.fromEntries(
@@ -153,10 +151,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
     canClaim: (state) => (nid) => {
       const n = state.neighborhoods[nid]
       if (!n || n.ownerId) return { can: false, reason: n?.ownerId ? 'owned' : 'unknown' }
-      const owned = state.myUserId
-        ? Object.values(state.neighborhoods).filter(x => x.ownerId === state.myUserId).length
-        : 0
-      if (owned >= MAX_OWNED) return { can: false, reason: 'cap' }
       return { can: true }
     },
 
@@ -329,7 +323,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       if (!check.can) {
         const msgs = {
           owned: 'Η γειτονιά έχει ήδη ιδιοκτήτη.',
-          cap: `Μπορείς να ελέγχεις έως ${MAX_OWNED} γειτονιές.`,
         }
         useGameStore().addNotification(msgs[check.reason] ?? 'Δεν μπορείς.', 'danger')
         return false
@@ -452,13 +445,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       try {
         if (captured) {
           const startInfluence = Math.floor((def?.influenceBaseMax ?? 1000) * CAPTURE_INFLUENCE_FRACTION)
-
-          // Cap owned count before capture
-          if (owned >= MAX_OWNED) {
-            useGameStore().addNotification(`Έφτασες το όριο ${MAX_OWNED} γειτονιών!`, 'danger')
-            player.modifyResource('nerve', ATTACK_NERVE_COST) // refund
-            return false
-          }
 
           const { error } = await supabase
             .from('neighborhood_control')

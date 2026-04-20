@@ -73,7 +73,10 @@
 
     <!-- World News -->
     <template v-if="activeTab === 'world'">
-      <div class="card news-card" v-for="article in worldNews" :key="article.id">
+      <div v-if="!worldNewsList.length" class="card text-center text-muted">
+        Δεν υπάρχουν ακόμα νέα στον κόσμο. Παίξε και δημιούργησε ιστορίες!
+      </div>
+      <div class="card news-card" v-for="article in worldNewsList" :key="article.id">
         <div class="news-header">
           <span class="news-category" :class="'cat-' + article.category">{{ article.categoryLabel }}</span>
           <span class="news-time text-muted">{{ article.timeAgo }}</span>
@@ -141,16 +144,20 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useEventsHubStore } from '../stores/eventsHubStore'
 import { useWeeklyEventStore } from '../stores/weeklyEventStore'
-import { fakeUsers } from '../data/fakeUsers'
+import { supabase } from '../lib/supabaseClient'
 
 const player = usePlayerStore()
 const eventsHub = useEventsHubStore()
 const weeklyEvent = useWeeklyEventStore()
 const activeTab = ref('city')
+
+const realTopPlayers = ref([])
+const loadingTopPlayers = ref(false)
+const worldNewsList = ref([])
 
 const tabs = [
   { key: 'city', icon: '🚶', label: 'Πόλη' },
@@ -163,68 +170,115 @@ function markRead() {
   eventsHub.markHubRead()
 }
 
-const worldNews = [
-  {
-    id: 1, category: 'battle', categoryLabel: '⚔️ Μάχη',
-    title: 'GR_Enforcer κατατρόπωσε Σπύρος_Underground σε επική μάχη',
-    body: 'Ο GR_Enforcer επιτέθηκε αιφνιδιαστικά στον Σπύρο_Underground στη συνοικία Κολωνός. Η μάχη διήρκεσε αρκετά λεπτά και κατέληξε σε νίκη του επιτιθέμενου.',
-    timeAgo: '8 λεπτά πριν',
-  },
-  {
-    id: 2, category: 'crime', categoryLabel: '🎭 Έγκλημα',
-    title: 'VangelisFury συνελήφθη κατά τη διάρκεια ληστείας',
-    body: 'Ο VangelisFury πιάστηκε επ\' αυτοφώρω να διαρρηγνύει κατάστημα ηλεκτρονικών στο κέντρο. Αναμένεται να βγει από τη φυλακή σε λίγη ώρα.',
-    timeAgo: '22 λεπτά πριν',
-  },
-  {
-    id: 3, category: 'level', categoryLabel: '📈 Επίπεδο',
-    title: 'ShadowNikos έφτασε το επίπεδο 18!',
-    body: 'Ο παίκτης ShadowNikos ανέβηκε στο επίπεδο 18 μετά από εντατική εκπαίδευση στο γυμναστήριο και επιτυχημένες αποστολές.',
-    timeAgo: '45 λεπτά πριν',
-  },
-  {
-    id: 4, category: 'battle', categoryLabel: '⚔️ Μάχη',
-    title: 'Μεγάλη PVP συμπλοκή στη Θεσσαλονίκη',
-    body: 'Τουλάχιστον 4 παίκτες ενεπλάκησαν σε σειρά PVP μαχών στην περιοχή της Θεσσαλονίκης. Νικητής αναδείχθηκε ο xXDimitrisXx.',
-    timeAgo: '1 ώρα πριν',
-  },
-  {
-    id: 5, category: 'economy', categoryLabel: '💰 Οικονομία',
-    title: 'Εκτόξευση τιμών στο Παζάρι — σπάνια αντικείμενα εξαφανίστηκαν',
-    body: 'Η ζήτηση για αλεξίσφαιρα γιλέκα και βαριά όπλα έχει φτάσει σε ιστορικά υψηλά. Οι έμποροι ζητούν έως 3x την κανονική τιμή.',
-    timeAgo: '2 ώρες πριν',
-  },
-  {
-    id: 6, category: 'crime', categoryLabel: '🎭 Έγκλημα',
-    title: 'Κύκλωμα κλοπής αυτοκινήτων αποκαλύφθηκε στον Πειραιά',
-    body: 'Αρκετοί παίκτες κατηγορούνται για οργανωμένη κλοπή αυτοκινήτων στο λιμάνι. Η αστυνομία εντάτιεψε τις περιπολίες.',
-    timeAgo: '3 ώρες πριν',
-  },
-  {
-    id: 7, category: 'faction', categoryLabel: '🏴 Συμμορία',
-    title: 'Η Μαύρη Αγορά επεκτείνεται στο Ηράκλειο',
-    body: 'Η φατρία "Μαύρη Αγορά" ανακοίνωσε επέκταση δραστηριοτήτων στην Κρήτη, προσφέροντας υψηλά bonus στα νέα μέλη.',
-    timeAgo: '5 ώρες πριν',
-  },
-  {
-    id: 8, category: 'level', categoryLabel: '📈 Επίπεδο',
-    title: 'Κώστας_93 ξεπέρασε τα 100 εγκλήματα!',
-    body: 'Ο Κώστας_93 έφτασε το ορόσημο των 100 επιτυχημένων εγκλημάτων και κέρδισε σπάνιο τίτλο "Ειδικός Εγκληματίας".',
-    timeAgo: '7 ώρες πριν',
-  },
-  {
-    id: 9, category: 'economy', categoryLabel: '💰 Οικονομία',
-    title: 'Νέο ρεκόρ ημερήσιων συναλλαγών στο Παζάρι',
-    body: 'Πάνω από €2.5 εκατ. άλλαξαν χέρια χθες μέσω του Παζαριού. Τα πιο δημοφιλή αντικείμενα ήταν τα αλεξίσφαιρα και τα ιατρικά kit.',
-    timeAgo: '10 ώρες πριν',
-  },
-  {
-    id: 10, category: 'battle', categoryLabel: '⚔️ Μάχη',
-    title: 'MakisGR νίκησε τον βαρύ αντίπαλο "Γεράκι του Βορρά"',
-    body: 'Σε μια μάχη που κράτησε πάνω από 10 γύρους, ο MakisGR κατόρθωσε να νικήσει έναν από τους πιο δύσκολους NPC αντιπάλους του παιχνιδιού.',
-    timeAgo: '12 ώρες πριν',
-  },
-]
+async function loadWorldNews() {
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const news = []
+
+    // Fetch neighborhood attacks
+    const { data: attacks } = await supabase
+      .from('neighborhood_attack_log')
+      .select('attacker_username, damage_dealt, captured, attacked_at')
+      .gte('attacked_at', oneDayAgo)
+      .order('attacked_at', { ascending: false })
+      .limit(20)
+
+    if (attacks && attacks.length > 0) {
+      for (const attack of attacks.slice(0, 3)) {
+        const timeAgo = formatAgo(new Date(attack.attacked_at).getTime())
+        if (attack.captured) {
+          news.push({
+            id: `attack-${attack.attacked_at}`,
+            category: 'battle',
+            categoryLabel: '⚔️ Κατάκτηση',
+            title: `${attack.attacker_username} κατέκτησε γειτονιά!`,
+            body: `Ο παίκτης ${attack.attacker_username} ανέλαβε τον έλεγχο μιας γειτονιάς μετά από επίθεση που προκάλεσε ${attack.damage_dealt} ζημιά.`,
+            timeAgo,
+          })
+        } else {
+          news.push({
+            id: `attack-dmg-${attack.attacked_at}`,
+            category: 'battle',
+            categoryLabel: '⚔️ Μάχη',
+            title: `${attack.attacker_username} επιτέθηκε σε γειτονιά`,
+            body: `Ο παίκτης ${attack.attacker_username} επιτέθηκε και προκάλεσε ${attack.damage_dealt} ζημιά στην Επιρροή.`,
+            timeAgo,
+          })
+        }
+      }
+    }
+
+    // Fetch players in jail/hospital
+    const { data: jailedPlayers } = await supabase
+      .from('profiles')
+      .select('username, status, status_timer_end, updated_at')
+      .in('status', ['jail', 'hospital'])
+      .gte('updated_at', oneDayAgo)
+      .order('updated_at', { ascending: false })
+      .limit(20)
+
+    if (jailedPlayers && jailedPlayers.length > 0) {
+      for (const player of jailedPlayers.slice(0, 3)) {
+        const timeAgo = formatAgo(new Date(player.updated_at).getTime())
+        if (player.status === 'jail') {
+          news.push({
+            id: `jail-${player.username}-${player.updated_at}`,
+            category: 'crime',
+            categoryLabel: '🔒 Φυλακή',
+            title: `${player.username} συνελήφθη!`,
+            body: `Ο παίκτης ${player.username} εισήχθη στη φυλακή κατά τη διάρκεια επικίνδυνης δραστηριότητας.`,
+            timeAgo,
+          })
+        } else {
+          news.push({
+            id: `hospital-${player.username}-${player.updated_at}`,
+            category: 'level',
+            categoryLabel: '🏥 Νοσοκομείο',
+            title: `${player.username} εισήχθη στο νοσοκομείο!`,
+            body: `Ο παίκτης ${player.username} χρειάστηκε ιατρική περίθαλψη και εισήχθη στο νοσοκομείο.`,
+            timeAgo,
+          })
+        }
+      }
+    }
+
+    // Fetch completed heists (from heist_lobbies with status 'completed')
+    const { data: completedHeists } = await supabase
+      .from('heist_lobbies')
+      .select('id, target_id, status, updated_at, members')
+      .eq('status', 'completed')
+      .gte('updated_at', oneDayAgo)
+      .order('updated_at', { ascending: false })
+      .limit(20)
+
+    if (completedHeists && completedHeists.length > 0) {
+      for (const heist of completedHeists.slice(0, 2)) {
+        const timeAgo = formatAgo(new Date(heist.updated_at).getTime())
+        const memberNames = heist.members ? heist.members.map((m: any) => m.username).join(', ') : 'Unknown'
+        const targetNames = ['Τράπεζα', 'Αρχαιολογικό Μουσείο', 'Κοσμημάτων κατάστημα']
+        const targetName = targetNames[heist.target_id % targetNames.length] || 'Στόχος'
+
+        news.push({
+          id: `heist-${heist.id}`,
+          category: 'crime',
+          categoryLabel: '🔫 Ριφιφί',
+          title: `${memberNames} εκτέλεσαν επιτυχές ριφιφί!`,
+          body: `Μια ομάδα παικτών εκτέλεσε επιτυχές ριφιφί στο ${targetName} και έφυγε με πολύτιμα λύτρα.`,
+          timeAgo,
+        })
+      }
+    }
+
+    // Sort by time (newest first)
+    worldNewsList.value = news.sort((a, b) => {
+      const timeA = parseInt(a.id.split('-').pop() || '0')
+      const timeB = parseInt(b.id.split('-').pop() || '0')
+      return timeB - timeA
+    }).slice(0, 10)
+  } catch (e) {
+    console.error('Failed to load world news:', e)
+  }
+}
 
 const serverStats = {
   onlinePlayers: 38,
@@ -233,15 +287,35 @@ const serverStats = {
   moneyCirculated: '2.4M',
 }
 
-const topPlayers = computed(() => {
-  const users = fakeUsers.slice(0, 4).map(u => ({
-    id: u.id, icon: u.icon, name: u.nickname, stat: `Επ. ${u.level}`,
-  }))
-  const me = { id: 'player', icon: '😎', name: player.name || 'Εσύ', stat: `Επ. ${player.level}` }
-  return [me, ...users]
-    .sort((a, b) => parseInt(b.stat.replace('Επ. ', '')) - parseInt(a.stat.replace('Επ. ', '')))
-    .slice(0, 5)
-})
+async function loadTopPlayers() {
+  loadingTopPlayers.value = true
+  try {
+    // Fetch top 4 players by level
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, level')
+      .order('level', { ascending: false })
+      .limit(4)
+
+    const dbPlayers = (data || []).map(p => ({
+      id: p.id,
+      icon: '👤',
+      name: p.username || 'Unknown',
+      stat: `Επ. ${p.level}`,
+    }))
+
+    const me = { id: 'player', icon: '😎', name: player.name || 'Εσύ', stat: `Επ. ${player.level}` }
+    realTopPlayers.value = [me, ...dbPlayers]
+      .sort((a, b) => parseInt(b.stat.replace('Επ. ', '')) - parseInt(a.stat.replace('Επ. ', '')))
+      .slice(0, 5)
+  } catch (e) {
+    console.error('Failed to load top players:', e)
+  } finally {
+    loadingTopPlayers.value = false
+  }
+}
+
+const topPlayers = computed(() => realTopPlayers.value)
 
 function rankClass(i) {
   if (i === 0) return 'rank-gold'
@@ -249,6 +323,11 @@ function rankClass(i) {
   if (i === 2) return 'rank-bronze'
   return ''
 }
+
+onMounted(async () => {
+  await loadTopPlayers()
+  await loadWorldNews()
+})
 
 function formatAgo(ts) {
   if (!ts) return ''

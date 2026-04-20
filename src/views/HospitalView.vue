@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useInventoryStore } from '../stores/inventoryStore'
 import { useGameStore } from '../stores/gameStore'
@@ -120,7 +120,7 @@ async function loadHospitalized() {
   try {
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, name, level, status, save_data')
+      .select('id, username, name, level, status, status_timer_end')
       .eq('status', 'hospital')
       .neq('id', auth.user.id)
       .limit(10)
@@ -128,8 +128,8 @@ async function loadHospitalized() {
       id: p.id,
       nickname: p.username || p.name || 'Αγνωστος',
       level: p.level ?? 1,
-      remaining: p.save_data?.stores?.player?.statusTimerEnd
-        ? Math.max(0, p.save_data.stores.player.statusTimerEnd - Date.now())
+      remaining: p.status_timer_end
+        ? Math.max(0, new Date(p.status_timer_end).getTime() - Date.now())
         : 0,
     }))
   } catch (e) {
@@ -139,7 +139,14 @@ async function loadHospitalized() {
   }
 }
 
-onMounted(loadHospitalized)
+let refreshInterval
+onMounted(() => {
+  loadHospitalized()
+  refreshInterval = setInterval(loadHospitalized, 30000)
+})
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval)
+})
 
 const remaining = computed(() => player.statusTimeRemaining)
 const medicalItems = computed(() => inventory.sortedItems.filter(i => i.data.type === 'medical'))

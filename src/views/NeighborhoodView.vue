@@ -2,7 +2,7 @@
   <div class="neighborhoods-page">
     <h2 class="page-title">🏘️ Κυριαρχία στις Γειτονιές</h2>
     <p class="text-muted page-subtitle">
-      Κατάλαβε γειτονιές της Αθήνας για μοναδικά bonuses. Μέγιστο {{ MAX_OWNED }} γειτονιές ανά παίκτη.
+      Κατάλαβε γειτονιές της Αθήνας για μοναδικά bonuses.
     </p>
 
     <!-- How it works -->
@@ -22,8 +22,8 @@
     <div class="status-bar card">
       <div class="status-item">
         <span class="status-label">Γειτονιές</span>
-        <span class="status-value" :class="{ 'text-danger': ownedCount >= MAX_OWNED }">
-          {{ ownedCount }} / {{ MAX_OWNED }}
+        <span class="status-value">
+          {{ ownedCount }}
         </span>
       </div>
       <div class="status-item">
@@ -221,7 +221,6 @@ import {
   useNeighborhoodStore,
   NEIGHBORHOOD_BOOSTS,
   ATTACK_NERVE_COST_PUBLIC,
-  NEIGHBORHOOD_MAX_OWNED,
 } from '../stores/neighborhoodStore'
 import { usePlayerStore } from '../stores/playerStore'
 import { neighborhoods } from '../data/neighborhoods'
@@ -229,7 +228,6 @@ import { neighborhoods } from '../data/neighborhoods'
 const nhStore     = useNeighborhoodStore()
 const playerStore = usePlayerStore()
 
-const MAX_OWNED         = NEIGHBORHOOD_MAX_OWNED
 const ATTACK_NERVE_COST = ATTACK_NERVE_COST_PUBLIC
 const BOOSTS            = NEIGHBORHOOD_BOOSTS
 
@@ -288,8 +286,6 @@ function attackHint(nid) {
 }
 
 function claimHint(nid) {
-  const reason = nhStore.canClaim(nid).reason
-  if (reason === 'cap') return `Μέγιστο ${MAX_OWNED} γειτονιές`
   return ''
 }
 

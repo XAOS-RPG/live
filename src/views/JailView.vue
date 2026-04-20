@@ -149,7 +149,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '../stores/playerStore'
 import { useGameStore } from '../stores/gameStore'
 import { calculateEscapeChance, calculateBribeCost } from '../engine/formulas'
@@ -223,7 +223,7 @@ async function loadJailed() {
   try {
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, name, level, status, save_data')
+      .select('id, username, name, level, status, status_timer_end')
       .eq('status', 'jail')
       .neq('id', auth.user.id)
       .limit(10)
@@ -231,8 +231,8 @@ async function loadJailed() {
       id: p.id,
       nickname: p.username || p.name || 'Άγνωστος',
       level: p.level ?? 1,
-      remaining: p.save_data?.stores?.player?.statusTimerEnd
-        ? Math.max(0, p.save_data.stores.player.statusTimerEnd - Date.now())
+      remaining: p.status_timer_end
+        ? Math.max(0, new Date(p.status_timer_end).getTime() - Date.now())
         : 0,
     }))
   } catch (e) {
@@ -350,7 +350,14 @@ function formatCooldown(ms) {
   return h > 0 ? `${h}ω ${m}λ` : `${m}λ`
 }
 
-onMounted(loadJailed)
+let refreshInterval
+onMounted(() => {
+  loadJailed()
+  refreshInterval = setInterval(loadJailed, 30000)
+})
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval)
+})
 
 function formatTime(ms) {
   if (ms <= 0) return '0:00'
