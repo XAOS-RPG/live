@@ -104,6 +104,21 @@ export const useEventsHubStore = defineStore('eventsHub', {
       game.saveGame()
     },
 
+    addEvent({ icon, title, message, kind = 'neutral' }) {
+      const entry = {
+        id: `ev_${Date.now()}_${idSeq++}`,
+        ts: Date.now(),
+        icon,
+        title,
+        message,
+        detail: '',
+        kind,
+      }
+      this.explorationLog.unshift(entry)
+      if (this.explorationLog.length > LOG_MAX) this.explorationLog.pop()
+      this.hubUnread = true
+    },
+
     markHubRead() {
       this.hubUnread = false
       useGameStore().saveGame()

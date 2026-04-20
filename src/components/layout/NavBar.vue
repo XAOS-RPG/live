@@ -23,21 +23,24 @@
       <span class="nav-label">Άλλα</span>
     </div>
 
-    <!-- Extra items (sidebar only) -->
+    <!-- Extra items grouped by category (sidebar only) -->
     <template v-if="vertical">
-      <router-link
-        v-for="item in allExtraItems"
-        :key="item.to"
-        :to="item.to"
-        class="nav-item"
-        :class="{ active: isRouteActive(item.to) }"
-      >
-        <span class="nav-icon-wrap">
-          <span class="nav-icon">{{ item.icon }}</span>
-          <span v-if="item.badgeKey && badges[item.badgeKey]?.value" class="nav-badge-dot" aria-hidden="true" />
-        </span>
-        <span class="nav-label">{{ item.label }}</span>
-      </router-link>
+      <template v-for="category in categories" :key="category.label">
+        <div class="sidebar-category-label">{{ category.label }}</div>
+        <router-link
+          v-for="item in category.items"
+          :key="item.to"
+          :to="item.to"
+          class="nav-item"
+          :class="{ active: isRouteActive(item.to) }"
+        >
+          <span class="nav-icon-wrap">
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span v-if="item.badgeKey && badges[item.badgeKey]?.value" class="nav-badge-dot" aria-hidden="true" />
+          </span>
+          <span class="nav-label">{{ item.label }}</span>
+        </router-link>
+      </template>
     </template>
   </nav>
 
@@ -116,7 +119,7 @@ const categories = [
       { to: '/bazaar',      icon: '🏪', label: 'Παζάρι',             badgeKey: 'bazaar' },
       { to: '/inventory',   icon: '🎒', label: 'Τσέπη',              badgeKey: null },
       { to: '/workshop',    icon: '🔨', label: 'Κατασκευές & Πατέντες', badgeKey: null },
-      { to: '/pets',        icon: '🐾', label: 'Κατοικίδια',         badgeKey: null },
+      { to: '/pets',        icon: '🐾', label: 'Κατοικίδια',         badgeKey: 'pets' },
     ],
   },
   {
@@ -268,6 +271,17 @@ function isRouteActive(path) {
 .nav-vertical .nav-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+}
+
+.sidebar-category-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted, var(--text-secondary));
+  padding: var(--space-md) var(--space-lg) 4px;
+  margin-top: var(--space-xs);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
 
 /* === More overlay (mobile) === */

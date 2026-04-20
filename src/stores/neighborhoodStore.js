@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
 import { useFactionStore } from './factionStore'
+import { useEventsHubStore } from './eventsHubStore'
 import { neighborhoods, getNeighborhoodById } from '../data/neighborhoods'
 import { calculateInfluenceDamage, calculateFilotimoAttackPenalty } from '../engine/formulas'
 
@@ -654,14 +655,21 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       if (incomePerHour <= 0) return
 
       this.incomeAccumulator += deltaMs
-      const msPerHour = 3600000
-      if (this.incomeAccumulator >= msPerHour) {
-        const hours = Math.floor(this.incomeAccumulator / msPerHour)
-        this.incomeAccumulator -= hours * msPerHour
-        const earned = hours * incomePerHour
+      const msPer6Hours = 6 * 3600000
+      if (this.incomeAccumulator >= msPer6Hours) {
+        const ticks = Math.floor(this.incomeAccumulator / msPer6Hours)
+        this.incomeAccumulator -= ticks * msPer6Hours
+        const earned = ticks * incomePerHour
         const player = usePlayerStore()
         player.addCash(earned)
         player.logActivity(`💵 Παθητικό εισόδημα Γειτονιάς: +${earned}€`, 'success')
+        useEventsHubStore().addEvent({
+          icon: '💵',
+          title: 'Παθητικό Εισόδημα',
+          message: `Έλαβες +${earned}€ από τις γειτονιές σου.`,
+          kind: 'good',
+        })
+        useGameStore().saveGame()
       }
     },
 
@@ -679,9 +687,16 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       }
 
       const player = usePlayerStore()
+      const eventsHub = useEventsHubStore()
       if (player.cash >= cost) {
         player.removeCash(cost)
         player.logActivity(`🏘️ Συντήρηση Γειτονιών: -${cost}€`, 'info')
+        eventsHub.addEvent({
+          icon: '🏘️',
+          title: 'Ημερήσιο Χαράτσι',
+          message: `Πλήρωσες ${cost}€ συντήρηση για τις γειτονιές σου.`,
+          kind: 'neutral',
+        })
         // Update maintenance timestamps in DB for owned neighborhoods
         const ownedIds = Object.entries(this.neighborhoods)
           .filter(([, n]) => n.ownerId === myId)
@@ -698,6 +713,12 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
         useGameStore().addNotification(
           `⚠️ Δεν πλήρωσες Χαράτσι Γειτονιάς (${cost}€)! Η Επιρροή σου εξασθενεί.`, 'danger'
         )
+        eventsHub.addEvent({
+          icon: '⚠️',
+          title: 'Χαράτσι Απλήρωτο',
+          message: `Δεν είχες αρκετά χρήματα για χαράτσι γειτονιάς (${cost}€)!`,
+          kind: 'bad',
+        })
       }
       this.lastMaintenanceCheck = now
     },

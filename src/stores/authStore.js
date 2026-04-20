@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { supabase } from '../lib/supabaseClient'
 import { useGameStore } from './gameStore'
 import { usePlayerStore } from './playerStore'
+import { useNeighborhoodStore } from './neighborhoodStore'
+import { usePetStore } from './petStore'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -218,6 +220,9 @@ export const useAuthStore = defineStore('auth', {
           if (data?.username) playerStore.name = data.username
           // setInitialized() will write the first cloud save for this account
           gameStore.setInitialized()
+          // Fetch neighborhoods for new accounts (loadGame() skips this for empty saves)
+          const nbStore = useNeighborhoodStore()
+          nbStore.fetchNeighborhoods().then(() => nbStore.subscribeRealtime())
         }
 
         this.showNotification('Καλώς ήρθες!', 'success')
@@ -260,6 +265,11 @@ export const useAuthStore = defineStore('auth', {
       gameStore.stopGameLoop()
       gameStore.initialized = false
       usePlayerStore().$reset()
+      // Reset stores that hold per-user data not covered by save_data hydration
+      const neighborhoodStore = useNeighborhoodStore()
+      neighborhoodStore.unsubscribeRealtime()
+      neighborhoodStore.$reset()
+      usePetStore().$reset()
     },
 
     showNotification(message, type = 'info') {

@@ -4,8 +4,8 @@
 
     <!-- Tab bar -->
     <div class="tab-bar">
-      <button :class="['tab-btn', tab === 'faction' ? 'active' : '']" @click="tab = 'faction'">🏴 Συμμορία</button>
-      <button :class="['tab-btn', tab === 'fortress' ? 'active' : '']" @click="tab = 'fortress'">🔍 Ψάξε</button>
+      <button :class="['tab-btn', tab === 'fortress' ? 'active' : '']" @click="tab = 'fortress'">🏴 Συμμορία</button>
+      <button :class="['tab-btn', tab === 'faction' ? 'active' : '']" @click="tab = 'faction'">🔍 Ψάξε</button>
     </div>
 
     <!-- ===== TAB: ΣΥΜΜΟΡΙΑ ===== -->
@@ -266,7 +266,7 @@ import { factions } from '../data/factions'
 const player = usePlayerStore()
 const factionStore = useFactionStore()
 
-const tab = ref('faction')
+const tab = ref('fortress')
 const showLeaveConfirm = ref(false)
 const donateAmount = ref(null)
 const donatePresets = [500, 1000, 5000, 10000]

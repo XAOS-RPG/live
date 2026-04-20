@@ -25,20 +25,29 @@ export const usePlayersStore = defineStore('players', {
 
         if (error) throw error
 
-        // Extract fields from save_data and sort client-side
-        const rows = (data || []).map(p => ({
-          id: p.id,
-          username: p.username,
-          level: p.save_data?.level ?? 1,
-          stats: p.save_data?.stats ?? {},
-          cash: p.save_data?.cash ?? 0,
-          bank: p.save_data?.bank ?? 0,
-          vault: p.save_data?.vault ?? 0,
-          filotimo: p.save_data?.filotimo ?? 0,
-        }))
+        // Extract fields from save_data (stored under stores.player)
+        const rows = (data || []).map(p => {
+          const pd = p.save_data?.stores?.player ?? {}
+          return {
+            id: p.id,
+            username: p.username,
+            level: pd.level ?? 1,
+            stats: pd.stats ?? {},
+            cash: pd.cash ?? 0,
+            bank: pd.bank ?? 0,
+            vault: pd.vault ?? 0,
+            filotimo: pd.filotimo ?? 0,
+          }
+        })
 
-        const col = { level: 'level', wealth: 'cash', stats: 'level', winrate: 'level' }[orderBy] ?? 'level'
-        rows.sort((a, b) => (b[col] ?? 0) - (a[col] ?? 0))
+        rows.sort((a, b) => {
+          if (orderBy === 'wealth') return (b.cash + b.bank + b.vault) - (a.cash + a.bank + a.vault)
+          if (orderBy === 'stats') {
+            const sum = s => (s.strength ?? 0) + (s.speed ?? 0) + (s.dexterity ?? 0) + (s.defense ?? 0)
+            return sum(b.stats) - sum(a.stats)
+          }
+          return (b.level ?? 0) - (a.level ?? 0)
+        })
         this.leaderboard = rows.slice(0, 30)
       } catch (e) {
         console.error('Leaderboard fetch error:', e)
