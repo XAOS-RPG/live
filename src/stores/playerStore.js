@@ -58,6 +58,7 @@ export const usePlayerStore = defineStore('player', {
 
     status: 'free',        // 'free' | 'hospital' | 'jail'
     statusTimerEnd: null,
+    statusReason: null,
 
     // Activity system: player can do one thing at a time
     // { type: 'crime'|'gym', id, label, icon, startTime, duration, preRolled: {...} }
@@ -218,6 +219,7 @@ export const usePlayerStore = defineStore('player', {
       this.xp = 0
       this.status = 'free'
       this.statusTimerEnd = null
+      this.statusReason = null
       this.lastTick = Date.now()
       this.createdAt = Date.now()
       this.activityLog = []
@@ -274,7 +276,7 @@ export const usePlayerStore = defineStore('player', {
       }
     },
 
-    setStatus(status, durationMs) {
+    setStatus(status, durationMs, reason = null) {
       // Pet snake reduces jail time
       if (status === 'jail') {
         const petReduction = usePetStore().jailReductionBonus
@@ -283,11 +285,13 @@ export const usePlayerStore = defineStore('player', {
       }
       this.status = status
       this.statusTimerEnd = Date.now() + durationMs
+      this.statusReason = reason || null
     },
 
     clearStatus() {
       this.status = 'free'
       this.statusTimerEnd = null
+      this.statusReason = null
     },
 
     /** Raw filotimo change — no multiplier (used internally for penalties) */
@@ -513,6 +517,7 @@ export const usePlayerStore = defineStore('player', {
         crimeXP: this.crimeXP,
         status: this.status,
         statusTimerEnd: this.statusTimerEnd,
+        statusReason: this.statusReason,
         activeActivity: this.activeActivity ? { ...this.activeActivity } : null,
         pendingResult: this.pendingResult ? { ...this.pendingResult } : null,
         lastTick: this.lastTick,

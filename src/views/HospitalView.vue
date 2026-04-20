@@ -16,6 +16,10 @@
         </div>
       </div>
 
+      <div v-if="player.statusReason" class="reason-bar">
+        💬 Λόγος: {{ player.statusReason }}
+      </div>
+
       <p class="text-muted text-center" style="font-size: var(--font-size-sm)">
         Ξεκουράσου... Θα είσαι κομμάτια για λίγο.
       </p>
@@ -182,6 +186,15 @@ function formatTime(ms) {
 
 <style scoped>
 .hospital-page { display: flex; flex-direction: column; gap: var(--space-md); }
+.reason-bar {
+  background: rgba(231,76,60,0.1);
+  border: 1px solid rgba(231,76,60,0.3);
+  border-radius: var(--border-radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  text-align: center;
+}
 .hospital-header { display: flex; align-items: center; gap: var(--space-sm); }
 .hospital-icon { font-size: 32px; }
 .timer-section { text-align: center; margin-bottom: var(--space-lg); }

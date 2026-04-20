@@ -80,12 +80,34 @@ export const items = [
   { id: 'ancient_vase', name: 'Αρχαίο Αγγείο', type: 'misc', rarity: 'legendary', buyPrice: 0, sellPrice: 5000, description: 'Αρχαίο ελληνικό αγγείο. Ανεκτίμητο.', levelRequired: 1, icon: '🏺' },
 ]
 
+export const PET_TOYS = [
+  { id: 'pet_toy_dog',     name: 'Μπαλάκι',             icon: '🎾', type: 'pet_toy', petId: 'stray_dog', buyPrice: 50,  sellPrice: 20, description: 'Μπαλάκι για σκύλο. 20 χρήσεις.',           levelRequired: 1 },
+  { id: 'pet_toy_cat',     name: 'Κουδουνίστρα',         icon: '🔔', type: 'pet_toy', petId: 'cat',       buyPrice: 40,  sellPrice: 15, description: 'Κουδουνίστρα για γάτα. 20 χρήσεις.',        levelRequired: 1 },
+  { id: 'pet_toy_pitbull', name: 'Σχοινάκι',             icon: '🪢', type: 'pet_toy', petId: 'pitbull',   buyPrice: 120, sellPrice: 50, description: 'Σχοινάκι για πίτμπουλ. 20 χρήσεις.',       levelRequired: 1 },
+  { id: 'pet_toy_parrot',  name: 'Καθρέφτης',            icon: '🪞', type: 'pet_toy', petId: 'parrot',    buyPrice: 80,  sellPrice: 30, description: 'Καθρέφτης για παπαγάλο. 20 χρήσεις.',      levelRequired: 1 },
+  { id: 'pet_toy_snake',   name: 'Τούνελ',               icon: '🌀', type: 'pet_toy', petId: 'snake',     buyPrice: 150, sellPrice: 60, description: 'Τούνελ για φίδι. 20 χρήσεις.',             levelRequired: 1 },
+  { id: 'pet_toy_lizard',  name: 'UV Λάμπα',             icon: '💡', type: 'pet_toy', petId: 'lizard',    buyPrice: 100, sellPrice: 40, description: 'UV λάμπα για σαύρα. 20 χρήσεις.',          levelRequired: 1 },
+  { id: 'pet_toy_falcon',  name: 'Γάντι Γερακάρη',       icon: '🧤', type: 'pet_toy', petId: 'falcon',    buyPrice: 200, sellPrice: 80, description: 'Γάντι για γεράκι. 20 χρήσεις.',            levelRequired: 1 },
+  { id: 'pet_toy_turtle',  name: 'Πέτρες Διακόσμησης',   icon: '🪨', type: 'pet_toy', petId: 'turtle',    buyPrice: 60,  sellPrice: 25, description: 'Πέτρες για χελώνα. 20 χρήσεις.',           levelRequired: 1 },
+]
+
+export const PET_FOODS = [
+  { id: 'pet_food_dog',     name: 'Σκυλοτροφή',  icon: '🥩', type: 'pet_food', petId: 'stray_dog', buyPrice: 25, sellPrice: 10, description: 'Τροφή για σκύλο.',   levelRequired: 1 },
+  { id: 'pet_food_cat',     name: 'Γατοτροφή',   icon: '🐟', type: 'pet_food', petId: 'cat',       buyPrice: 20, sellPrice: 8,  description: 'Τροφή για γάτα.',    levelRequired: 1 },
+  { id: 'pet_food_pitbull', name: 'Κρεατοτροφή', icon: '🥩', type: 'pet_food', petId: 'pitbull',   buyPrice: 50, sellPrice: 20, description: 'Τροφή για πίτμπουλ.', levelRequired: 1 },
+  { id: 'pet_food_parrot',  name: 'Σπόροι',      icon: '🌾', type: 'pet_food', petId: 'parrot',    buyPrice: 30, sellPrice: 12, description: 'Τροφή για παπαγάλο.', levelRequired: 1 },
+  { id: 'pet_food_snake',   name: 'Ποντίκι',     icon: '🐭', type: 'pet_food', petId: 'snake',     buyPrice: 40, sellPrice: 16, description: 'Τροφή για φίδι.',    levelRequired: 1 },
+  { id: 'pet_food_lizard',  name: 'Έντομα',      icon: '🦗', type: 'pet_food', petId: 'lizard',    buyPrice: 20, sellPrice: 8,  description: 'Τροφή για σαύρα.',   levelRequired: 1 },
+  { id: 'pet_food_falcon',  name: 'Κρέας',       icon: '🍖', type: 'pet_food', petId: 'falcon',    buyPrice: 60, sellPrice: 25, description: 'Τροφή για γεράκι.',  levelRequired: 1 },
+  { id: 'pet_food_turtle',  name: 'Λαχανικά',    icon: '🥬', type: 'pet_food', petId: 'turtle',    buyPrice: 15, sellPrice: 6,  description: 'Τροφή για χελώνα.',  levelRequired: 1 },
+]
+
 export function getItemById(id) {
-  return [...CRAFTING_MATERIALS, ...CRAFTED_ITEMS, ...items].find(i => i.id === id)
+  return [...CRAFTING_MATERIALS, ...CRAFTED_ITEMS, ...items, ...PET_TOYS, ...PET_FOODS].find(i => i.id === id)
 }
 
 export function getItemsByType(type) {
-  return items.filter(i => i.type === type)
+  return [...items, ...PET_TOYS, ...PET_FOODS].filter(i => i.type === type)
 }
 
 export function getBuyableItems() {

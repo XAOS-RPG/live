@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 import { petDefinitions, getPetDefinition, getPetBonusMultiplier, trainingXpForLevel } from '../data/pets'
+import { PET_TOYS, PET_FOODS } from '../data/items'
 import { usePlayerStore } from './playerStore'
 import { useGameStore } from './gameStore'
+import { usePropertyStore } from './propertyStore'
 import { useInventoryStore } from './inventoryStore'
+import { useEventsHubStore } from './eventsHubStore'
 
 const ABANDON_MS          = 48 * 60 * 60 * 1000
 const TRAIN_COOLDOWN_MS   = 4  * 60 * 60 * 1000
@@ -12,7 +15,8 @@ const HAPPINESS_DECAY_MS  = 6  * 60 * 60 * 1000  // -5 happiness every 6h
 const FOOD_DECAY_MS       = 8  * 60 * 60 * 1000  // -20 food every 8h
 const CLEAN_DECAY_MS      = 10 * 60 * 60 * 1000  // -15 cleanliness every 10h
 
-// Items dogs can find on walks (Nintendogs-style)
+const TOY_MAX_USES = 20
+
 const DOG_WALK_FINDS = [
   { itemId: 'bandage',       name: 'Γάζες',                  icon: '🩹', chance: 0.30 },
   { itemId: 'painkillers',   name: 'Παυσίπονα',              icon: '💊', chance: 0.20 },
@@ -27,7 +31,6 @@ const DOG_WALK_FINDS = [
   { itemId: 'chocolate',     name: 'Σοκολάτα',               icon: '🍫', chance: 0.12 },
 ]
 
-// Items cats bring home
 const CAT_WALK_FINDS = [
   { itemId: 'dead_bird',   name: 'Νεκρό Πουλί',  icon: '🐦', chance: 0.35, isJunk: true },
   { itemId: 'dead_lizard', name: 'Νεκρή Σαύρα',  icon: '🦎', chance: 0.30, isJunk: true },
@@ -50,12 +53,18 @@ function pickWalkFind(table) {
   return null
 }
 
+function getActiveStash() {
+  const propStore = usePropertyStore()
+  return propStore.activeInstance
+}
+
 export const usePetStore = defineStore('pet', {
   state: () => ({
     ownedPets: [],   // { petId, level, trainingXp, happiness, food, cleanliness, lastFed, lastTrained, lastPlayed, lastWalked, lastBathed }
-    activePetId: null,
+    activePetId: null,   // kept for backward compat; not used for bonuses
     lastPetTick: 0,
-    lastWalkFind: null,  // { petId, itemId, itemName, itemIcon, isJunk, ts } — shown in UI
+    lastWalkFind: null,  // { petId, itemId, itemName, itemIcon, isJunk, ts }
+    toyUses: {},         // { [toyItemId]: remainingUses }
   }),
 
   getters: {
@@ -75,14 +84,17 @@ export const usePetStore = defineStore('pet', {
       return (petId) => WALKABLE_PETS.includes(petId)
     },
 
+    // All owned pets with happiness > 0 contribute their bonus (multiplied together)
     bonusFor() {
       return (bonusType) => {
-        const pet = this.activePet
-        if (!pet) return 1.0
-        const def = getPetDefinition(pet.petId)
-        if (!def || def.bonusType !== bonusType) return 1.0
-        if (pet.happiness <= 0) return 1.0
-        return getPetBonusMultiplier(def, pet.level)
+        let multiplier = 1.0
+        for (const pet of this.ownedPets) {
+          if (pet.happiness <= 0) continue
+          const def = getPetDefinition(pet.petId)
+          if (!def || def.bonusType !== bonusType) continue
+          multiplier *= getPetBonusMultiplier(def, pet.level)
+        }
+        return multiplier
       }
     },
 
@@ -126,6 +138,26 @@ export const usePetStore = defineStore('pet', {
         return (pet.food ?? 100) < 25
       }
     },
+
+    toyUsesFor() {
+      return (toyItemId) => this.toyUses[toyItemId] ?? 0
+    },
+
+    hasToyInStash() {
+      return (toyItemId) => {
+        const stash = getActiveStash()
+        if (!stash) return false
+        return (stash.stash[toyItemId] || 0) > 0
+      }
+    },
+
+    hasFoodInStash() {
+      return (foodItemId) => {
+        const stash = getActiveStash()
+        if (!stash) return false
+        return (stash.stash[foodItemId] || 0) > 0
+      }
+    },
   },
 
   actions: {
@@ -134,6 +166,11 @@ export const usePetStore = defineStore('pet', {
       if (pet.cleanliness === undefined) pet.cleanliness = 100
       if (pet.lastWalked  === undefined) pet.lastWalked  = 0
       if (pet.lastBathed  === undefined) pet.lastBathed  = 0
+    },
+
+    _getActiveStashInstance() {
+      const propStore = usePropertyStore()
+      return propStore.activeInstance
     },
 
     buyPet(petId) {
@@ -179,6 +216,47 @@ export const usePetStore = defineStore('pet', {
       return true
     },
 
+    // Buy a pet toy or food item directly into home stash
+    buyPetItem(itemId) {
+      const player    = usePlayerStore()
+      const gameStore = useGameStore()
+      const propStore = usePropertyStore()
+
+      const allPetItems = [...PET_TOYS, ...PET_FOODS]
+      const itemDef = allPetItems.find(i => i.id === itemId)
+      if (!itemDef) return false
+
+      if (player.cash < itemDef.buyPrice) {
+        gameStore.addNotification(`Χρειάζεσαι €${itemDef.buyPrice}!`, 'danger')
+        return false
+      }
+
+      const instance = propStore.activeInstance
+      if (!instance) {
+        gameStore.addNotification('Χρειάζεσαι ενεργό σπίτι για να αποθηκεύσεις αντικείμενα!', 'danger')
+        return false
+      }
+
+      const propData = propStore.activeProperty
+      const used = Object.values(instance.stash || {}).reduce((s, q) => s + Number(q || 0), 0)
+      if (used + 1 > (propData?.itemCapacity || 0)) {
+        gameStore.addNotification('Η αποθήκη του σπιτιού είναι γεμάτη!', 'danger')
+        return false
+      }
+
+      player.removeCash(itemDef.buyPrice)
+      instance.stash[itemId] = (instance.stash[itemId] || 0) + 1
+
+      // If it's a toy and uses aren't initialized, set them
+      if (itemDef.type === 'pet_toy') {
+        this.toyUses[itemId] = (this.toyUses[itemId] || 0) + TOY_MAX_USES
+      }
+
+      gameStore.addNotification(`${itemDef.icon} ${itemDef.name} αποθηκεύτηκε στο σπίτι!`, 'success')
+      gameStore.saveGame()
+      return true
+    },
+
     feedPet(petId) {
       const player    = usePlayerStore()
       const gameStore = useGameStore()
@@ -189,17 +267,28 @@ export const usePetStore = defineStore('pet', {
       const def = getPetDefinition(petId)
       if (!def) return false
 
-      if (player.cash < def.feedCost) {
-        gameStore.addNotification(`Χρειάζεσαι €${def.feedCost} για τροφή!`, 'danger')
+      const instance = this._getActiveStashInstance()
+      if (!instance) {
+        gameStore.addNotification('Χρειάζεσαι ενεργό σπίτι! Αγόρασε τροφή από το Petshop.', 'danger')
         return false
       }
 
-      player.removeCash(def.feedCost)
+      const foodId = def.foodItemId
+      const stashQty = instance.stash[foodId] || 0
+      if (stashQty <= 0) {
+        gameStore.addNotification(`Δεν έχεις ${def.icon === '🐈' ? 'γατοτροφή' : 'τροφή'} για το ${def.name}! Αγόρασε από το Petshop.`, 'warning')
+        return false
+      }
+
+      // Consume 1 food from stash
+      instance.stash[foodId]--
+      if (instance.stash[foodId] <= 0) delete instance.stash[foodId]
+
       pet.lastFed    = Date.now()
       pet.food       = Math.min(100, (pet.food ?? 0) + 50)
       pet.happiness  = Math.min(100, pet.happiness + 10)
 
-      gameStore.addNotification(`${def.icon} Τάισες το ${def.name}! +50 Τροφή (-€${def.feedCost})`, 'success')
+      gameStore.addNotification(`${def.icon} Τάισες το ${def.name}! +50 Τροφή`, 'success')
       gameStore.saveGame()
       return true
     },
@@ -207,6 +296,7 @@ export const usePetStore = defineStore('pet', {
     playWithPet(petId) {
       const player    = usePlayerStore()
       const gameStore = useGameStore()
+      const evHub     = useEventsHubStore()
       const pet       = this.ownedPets.find(p => p.petId === petId)
       if (!pet) return false
       this._ensureStats(pet)
@@ -218,11 +308,78 @@ export const usePetStore = defineStore('pet', {
         return false
       }
 
+      const instance = this._getActiveStashInstance()
+      if (!instance) {
+        gameStore.addNotification('Χρειάζεσαι ενεργό σπίτι! Αγόρασε παιχνίδι από το Petshop.', 'danger')
+        return false
+      }
+
+      const toyId = def.toyItemId
+      const stashQty = instance.stash[toyId] || 0
+
+      if (stashQty <= 0 && (this.toyUses[toyId] || 0) <= 0) {
+        gameStore.addNotification(`Δεν έχεις παιχνίδι για το ${def.name}! Αγόρασε από το Petshop.`, 'warning')
+        return false
+      }
+
+      // Initialize uses if toy is in stash but uses not tracked
+      if ((this.toyUses[toyId] || 0) <= 0 && stashQty > 0) {
+        this.toyUses[toyId] = TOY_MAX_USES
+      }
+
       player.modifyResource('energy', -5)
-      pet.happiness  = Math.min(100, pet.happiness + 5)
+      pet.happiness  = Math.min(100, pet.happiness + 30)
       pet.lastPlayed = Date.now()
 
-      gameStore.addNotification(`${def.icon} Έπαιξες με το ${def.name}! +5 Χαρά (-5 Ενέργεια)`, 'success')
+      // Consume toy use
+      this.toyUses[toyId]--
+      const usesLeft = this.toyUses[toyId]
+      let toyBroken = false
+      if (usesLeft <= 0) {
+        // Toy used up — remove 1 from stash
+        instance.stash[toyId] = Math.max(0, (instance.stash[toyId] || 1) - 1)
+        if (instance.stash[toyId] <= 0) delete instance.stash[toyId]
+        // If more in stash, refill uses for next one
+        if ((instance.stash[toyId] || 0) > 0) {
+          this.toyUses[toyId] = TOY_MAX_USES
+        } else {
+          this.toyUses[toyId] = 0
+        }
+        toyBroken = true
+      }
+
+      // Cat scratch: 50% chance
+      if (petId === 'cat') {
+        if (Math.random() < 0.5) {
+          const scratchDmg = 5
+          const hpBefore = player.resources.hp.current
+          player.modifyResource('hp', -scratchDmg)
+          const hpAfter = player.resources.hp.current
+
+          gameStore.addNotification(`😾 Η γάτα σε γρατζούνισε! -${scratchDmg} HP`, 'danger')
+          player.logActivity('😾 Η γάτα σε γρατζούνισε! -5 HP', 'danger')
+          evHub.addEvent({
+            icon: '😾',
+            title: 'Γρατζουνιά Γάτας',
+            message: `Η γάτα σου σε γρατζούνισε παίζοντας! -${scratchDmg} HP`,
+            kind: 'danger',
+          })
+
+          // Check if player died from scratch
+          if (hpAfter <= 0) {
+            const hospitalMs = 10 * 60 * 1000 // 10 min
+            player.setStatus('hospital', hospitalMs, 'Σε γρατζούνισε η γάτα σου!')
+            player.resources.hp.current = 1
+            gameStore.addNotification('💀 Πέθανες από τις γρατζουνιές! Νοσοκομείο 10 λεπτά!', 'danger')
+            player.logActivity('💀 Νοσοκομείο: γρατζουνιές γάτας', 'danger')
+          }
+        }
+      }
+
+      let msg = `${def.icon} Έπαιξες με το ${def.name}! +30 Χαρά (-5 Ενέργεια)`
+      if (toyBroken) msg += ' — Το παιχνίδι κατεστράφη!'
+      else if (usesLeft > 0) msg += ` (${usesLeft} χρήσεις)`
+      gameStore.addNotification(msg, 'success')
       gameStore.saveGame()
       return true
     },
@@ -261,7 +418,7 @@ export const usePetStore = defineStore('pet', {
     walkPet(petId) {
       const player    = usePlayerStore()
       const gameStore = useGameStore()
-      const inv       = useInventoryStore()
+      const propStore = usePropertyStore()
       const pet       = this.ownedPets.find(p => p.petId === petId)
       if (!pet) return false
       this._ensureStats(pet)
@@ -289,15 +446,13 @@ export const usePetStore = defineStore('pet', {
         return false
       }
 
-      // Walk effects
       player.modifyResource('energy', -15)
       pet.food        = Math.max(0, (pet.food ?? 100) - 15)
       pet.lastWalked  = now
       pet.happiness   = Math.min(100, pet.happiness + 25)
-      pet.cleanliness = Math.max(0, (pet.cleanliness ?? 100) - 20)  // gets dirty
+      pet.cleanliness = Math.max(0, (pet.cleanliness ?? 100) - 20)
       pet.lastPlayed  = now
 
-      // Find an item
       const table = petId === 'cat' ? CAT_WALK_FINDS : DOG_WALK_FINDS
       const found = pickWalkFind(table)
 
@@ -312,11 +467,24 @@ export const usePetStore = defineStore('pet', {
         }
 
         if (!found.isJunk) {
-          inv.addItem(found.itemId, 1)
-          gameStore.addNotification(`${def.icon} Βόλτα! Βρήκε: ${found.icon} ${found.name}`, 'success')
+          // Add to home stash if possible, else to inventory
+          const instance = this._getActiveStashInstance()
+          if (instance) {
+            const propData = propStore.activeProperty
+            const used = Object.values(instance.stash || {}).reduce((s, q) => s + Number(q || 0), 0)
+            if (used < (propData?.itemCapacity || 0)) {
+              instance.stash[found.itemId] = (instance.stash[found.itemId] || 0) + 1
+              gameStore.addNotification(`${def.icon} Βόλτα! Βρήκε: ${found.icon} ${found.name} (αποθηκεύτηκε στο σπίτι)`, 'success')
+            } else {
+              useInventoryStore().addItem(found.itemId, 1)
+              gameStore.addNotification(`${def.icon} Βόλτα! Βρήκε: ${found.icon} ${found.name}`, 'success')
+            }
+          } else {
+            useInventoryStore().addItem(found.itemId, 1)
+            gameStore.addNotification(`${def.icon} Βόλτα! Βρήκε: ${found.icon} ${found.name}`, 'success')
+          }
           player.logActivity(`🐾 ${def.name} βρήκε ${found.name} στη βόλτα`, 'info')
         } else {
-          // Cat brings junk — still logs it, no inventory
           gameStore.addNotification(`${def.icon} Η γάτα έφερε ${found.icon} ${found.name}... ευχαριστώ?`, 'warning')
           player.logActivity(`🐾 ${def.name} έφερε ${found.name} σπίτι`, 'info')
         }
@@ -379,10 +547,6 @@ export const usePetStore = defineStore('pet', {
       const gameStore = useGameStore()
       if (petId && !this.ownedPets.find(p => p.petId === petId)) return false
       this.activePetId = petId
-      if (petId) {
-        const def = getPetDefinition(petId)
-        gameStore.addNotification(`${def.icon} ${def.name} είναι τώρα ενεργό!`, 'info')
-      }
       gameStore.saveGame()
       return true
     },
@@ -444,6 +608,7 @@ export const usePetStore = defineStore('pet', {
         ownedPets:    this.ownedPets.map(p => ({ ...p })),
         activePetId:  this.activePetId,
         lastWalkFind: this.lastWalkFind,
+        toyUses:      { ...this.toyUses },
       }
     },
 
@@ -455,6 +620,7 @@ export const usePetStore = defineStore('pet', {
       }
       if (data.activePetId  !== undefined) this.activePetId  = data.activePetId
       if (data.lastWalkFind !== undefined) this.lastWalkFind = data.lastWalkFind
+      if (data.toyUses      !== undefined) this.toyUses      = { ...data.toyUses }
     },
   },
 })

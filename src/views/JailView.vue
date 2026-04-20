@@ -17,6 +17,10 @@
         </div>
       </div>
 
+      <div v-if="player.statusReason" class="reason-bar">
+        💬 Λόγος: {{ player.statusReason }}
+      </div>
+
       <div class="jail-actions">
         <button class="btn btn-primary btn-block" :disabled="!canEscape" @click="tryEscape">
           🏃 Απόπειρα Απόδρασης ({{ Math.floor(escapeChance * 100) }}%)
@@ -362,6 +366,16 @@ function formatCash(amount) {
 
 <style scoped>
 .jail-page { display: flex; flex-direction: column; gap: var(--space-md); }
+.reason-bar {
+  background: rgba(241,196,15,0.1);
+  border: 1px solid rgba(241,196,15,0.3);
+  border-radius: var(--border-radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-warning, #e67e22);
+  text-align: center;
+  margin-bottom: var(--space-sm);
+}
 .jail-header { display: flex; align-items: center; gap: var(--space-sm); }
 .jail-icon { font-size: 32px; }
 
