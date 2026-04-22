@@ -37,6 +37,33 @@ function pickWeighted(pool) {
   return pool[pool.length - 1]
 }
 
+function pickFromItemPool(pool) {
+  if (!Array.isArray(pool) || pool.length === 0) return null
+  const choice = pool[Math.floor(Math.random() * pool.length)]
+  if (typeof choice === 'string') return { id: choice, qty: 1 }
+  if (!choice?.id) return null
+  return { id: choice.id, qty: choice.qty ?? 1 }
+}
+
+function getExpeditionBonusItemPool(eventId, outcome = {}) {
+  if (eventId === 'stash_find' && outcome.cash >= 200) {
+    return ['mat_fuel', 'mat_iron', 'mat_wood', 'mat_fabric', 'mat_chemicals']
+  }
+  if (eventId === 'locked_crate' && outcome.item?.id === 'mat_iron') {
+    return ['mat_wood', 'mat_fuel']
+  }
+  if (eventId === 'locked_crate' && outcome.item?.id === 'jewelry') {
+    return ['mat_electronics', 'mat_electronics', 'mat_battery', 'mat_iron']
+  }
+  if (eventId === 'smuggler_drop' && outcome.item?.id === 'cigarettes') {
+    return ['mat_fuel', 'mat_fuel', 'mat_chemicals', 'mat_chemicals', 'mat_electronics']
+  }
+  if (eventId === 'hidden_door' && outcome.item?.id === 'jewelry') {
+    return ['mat_kevlar', 'mat_electronics', 'mat_iron', 'mat_fuel']
+  }
+  return null
+}
+
 function newDistrictState() {
   return {
     heat: 0,
@@ -492,6 +519,20 @@ export const useExpeditionStore = defineStore('expedition', {
         } else if (qty < 0) {
           inventory.removeItem(id, -qty)
           logEntry.deltas.item = { id, qty }
+        }
+      }
+
+      const bonusPool = outcome.itemPool?.length ? outcome.itemPool : getExpeditionBonusItemPool(event.id, outcome)
+      if (bonusPool?.length) {
+        const rolledItem = pickFromItemPool(bonusPool)
+        if (rolledItem) {
+          const res = inventory.addItem(rolledItem.id, rolledItem.qty)
+          if (res.ok) {
+            totals.items.push({ id: rolledItem.id, qty: rolledItem.qty })
+            logEntry.deltas.bonusItem = { id: rolledItem.id, qty: rolledItem.qty }
+          } else {
+            logEntry.deltas.bonusItemFailed = { id: rolledItem.id, qty: rolledItem.qty, reason: res.message }
+          }
         }
       }
 

@@ -16,6 +16,7 @@ const FOOD_DECAY_MS       = 8  * 60 * 60 * 1000  // -20 food every 8h
 const CLEAN_DECAY_MS      = 10 * 60 * 60 * 1000  // -15 cleanliness every 10h
 
 const TOY_MAX_USES = 20
+const WALK_NO_FIND_WEIGHT = 0.55
 
 const DOG_WALK_FINDS = [
   { itemId: 'bandage',       name: 'Γάζες',                  icon: '🩹', chance: 0.30 },
@@ -41,6 +42,36 @@ const CAT_WALK_FINDS = [
   { itemId: 'water',       name: 'Νερό',         icon: '💧', chance: 0.15 },
 ]
 
+const WALK_FINDS_DOG_V2 = [
+  { itemId: 'bandages', name: 'Γάζες', icon: '🩹', chance: 0.18 },
+  { itemId: 'painkillers', name: 'Παυσίπονα', icon: '💊', chance: 0.12 },
+  { itemId: 'water_bottle', name: 'Νερό', icon: '💧', chance: 0.16 },
+  { itemId: 'toast_bag', name: 'Τοστ', icon: '🥪', chance: 0.12 },
+  { itemId: 'chocolate', name: 'Σοκολάτα', icon: '🍫', chance: 0.10 },
+  { itemId: 'cigarettes', name: 'Τσιγάρα', icon: '🚬', chance: 0.10 },
+  { itemId: 'mat_iron', name: 'Σίδερο', icon: '🔩', chance: 0.18 },
+  { itemId: 'mat_wood', name: 'Ξύλο', icon: '🪵', chance: 0.16 },
+  { itemId: 'mat_fabric', name: 'Ύφασμα', icon: '🧵', chance: 0.12 },
+  { itemId: 'mat_battery', name: 'Μπαταρία', icon: '🔋', chance: 0.10 },
+  { itemId: 'mat_fuel', name: 'Βενζίνη', icon: '⛽', chance: 0.12 },
+  { itemId: 'mat_electronics', name: 'Ηλεκτρονικά', icon: '🔌', chance: 0.08 },
+  { itemId: 'mat_chemicals', name: 'Χημικά', icon: '🧪', chance: 0.07 },
+  { itemId: 'first_aid', name: 'Κιτ Πρώτων Βοηθειών', icon: '🏥', chance: 0.04 },
+]
+
+const WALK_FINDS_CAT_V2 = [
+  { itemId: 'dead_bird', name: 'Νεκρό Πουλί', icon: '🐦', chance: 0.35, isJunk: true },
+  { itemId: 'dead_lizard', name: 'Νεκρή Σαύρα', icon: '🦎', chance: 0.30, isJunk: true },
+  { itemId: 'cigarettes', name: 'Τσιγάρα', icon: '🚬', chance: 0.10 },
+  { itemId: 'bandages', name: 'Γάζες', icon: '🩹', chance: 0.08 },
+  { itemId: 'mat_fabric', name: 'Ύφασμα', icon: '🧵', chance: 0.12 },
+  { itemId: 'mat_iron', name: 'Σίδερο', icon: '🔩', chance: 0.08 },
+  { itemId: 'mat_electronics', name: 'Ηλεκτρονικά', icon: '🔌', chance: 0.06 },
+  { itemId: 'mat_fuel', name: 'Βενζίνη', icon: '⛽', chance: 0.05 },
+  { itemId: 'chewing_gum', name: 'Τσίχλα', icon: '🫧', chance: 0.16 },
+  { itemId: 'water_bottle', name: 'Νερό', icon: '💧', chance: 0.12 },
+]
+
 const WALKABLE_PETS = ['stray_dog', 'pitbull', 'cat']
 
 function pickWalkFind(table) {
@@ -48,6 +79,20 @@ function pickWalkFind(table) {
   let cumulative = 0
   for (const entry of table) {
     cumulative += entry.chance
+    if (roll < cumulative) return entry
+  }
+  return null
+}
+
+function pickWeightedWalkFind(table) {
+  const total = table.reduce((sum, entry) => sum + (entry.chance || 0), WALK_NO_FIND_WEIGHT)
+  let roll = Math.random() * total
+  if (roll < WALK_NO_FIND_WEIGHT) return null
+  roll -= WALK_NO_FIND_WEIGHT
+
+  let cumulative = 0
+  for (const entry of table) {
+    cumulative += entry.chance || 0
     if (roll < cumulative) return entry
   }
   return null
@@ -453,8 +498,8 @@ export const usePetStore = defineStore('pet', {
       pet.cleanliness = Math.max(0, (pet.cleanliness ?? 100) - 20)
       pet.lastPlayed  = now
 
-      const table = petId === 'cat' ? CAT_WALK_FINDS : DOG_WALK_FINDS
-      const found = pickWalkFind(table)
+      const table = petId === 'cat' ? WALK_FINDS_CAT_V2 : WALK_FINDS_DOG_V2
+      const found = pickWeightedWalkFind(table)
 
       if (found) {
         this.lastWalkFind = {
