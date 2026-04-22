@@ -13,7 +13,7 @@
         <li><strong>Επίθεση</strong>: κοστίζει {{ ATTACK_NERVE_COST }} Θράσος και μειώνει την Επιρροή του ιδιοκτήτη (cooldown 2ώρες ανά γειτονιά).</li>
         <li><strong>Ενίσχυση Επιρροής</strong>: 4 διαφορετικές δράσεις με διαφορετικό κόστος και αποτέλεσμα (δες παρακάτω σε κάθε γειτονιά).</li>
         <li><strong>Bonuses</strong>: κάθε γειτονιά δίνει μοναδικό passive bonus στον ιδιοκτήτη.</li>
-        <li><strong>Ημερήσιο Χαράτσι</strong>: αν δεν πληρώσεις 7 μέρες, η γειτονιά γίνεται ξανά αδέσμευτη.</li>
+        <li><strong>Αποχώρηση</strong>: μπορείς να αφήσεις όποτε θέλεις μια δική σου γειτονιά και να γίνει ξανά αδέσμευτη.</li>
         <li><strong>Αντίποινα</strong>: όταν σου επιτεθούν, παίρνεις +25% επίθεση κατά του δράστη για 48 ώρες.</li>
       </ul>
     </details>
@@ -25,10 +25,6 @@
         <span class="status-value">
           {{ ownedCount }}
         </span>
-      </div>
-      <div class="status-item">
-        <span class="status-label">Ημερήσιο Χαράτσι</span>
-        <span class="status-value">{{ ownedCount > 0 ? formatCash(nhStore.dailyMaintenanceCost) : '—' }}</span>
       </div>
       <div class="status-item">
         <span class="status-label">Παθητικό Εισόδημα</span>
@@ -77,7 +73,17 @@
         <div class="nc-influence">
           <div class="influence-label">
             <span>👑 Επιρροή</span>
-            <span class="influence-text">{{ getData(def.id).influence }} / {{ nhStore.effectiveInfluenceMax(def.id) }}</span>
+            <div class="influence-side">
+              <button
+                v-if="isOwn(def.id)"
+                class="btn btn-sm btn-outline leave-btn"
+                title="Άσε τη γειτονιά και κάν' τη ξανά αδέσμευτη"
+                @click="doAbandon(def.id)"
+              >
+                Αποχώρηση
+              </button>
+              <span class="influence-text">{{ getData(def.id).influence }} / {{ nhStore.effectiveInfluenceMax(def.id) }}</span>
+            </div>
           </div>
           <div class="influence-bar" :title="`${Math.round(influencePercent(def.id))}% επιρροή — όταν φτάσει στο 0 χάνεται ο έλεγχος`">
             <div
@@ -387,6 +393,12 @@ async function doBoost(nid, key) {
   await nhStore.boostInfluence(nid, key)
 }
 
+async function doAbandon(nid) {
+  const name = neighborhoods.find(n => n.id === nid)?.name ?? 'τη γειτονιά'
+  if (!window.confirm(`Να γίνει αποχώρηση από τη ${name};`)) return
+  await nhStore.abandonNeighborhood(nid)
+}
+
 async function doGraffiti(nid) {
   const text = graffitiInputs.value[nid]
   if (!text) return
@@ -490,7 +502,19 @@ async function doGraffiti(nid) {
 
 .nc-influence { display: flex; flex-direction: column; gap: 0.3rem; }
 .influence-label { display: flex; justify-content: space-between; font-size: 0.78rem; }
+.influence-side {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .influence-text { color: var(--text-muted); }
+.leave-btn {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
 .influence-bar {
   height: 8px;
   background: var(--border-color);

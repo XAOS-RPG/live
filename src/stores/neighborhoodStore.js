@@ -36,7 +36,6 @@ const KEP_CASH_COST        = 200
 const KEP_INFLUENCE_BOOST  = 500                    // was 50 wall HP
 const KEP_COOLDOWN_MS      = 6 * 60 * 60 * 1000    // 6 hours
 
-const INACTIVITY_MS        = 7 * 24 * 60 * 60 * 1000 // 7 days → neutral
 const COALITION_THRESHOLD  = 3                      // unique attackers in 24h for bonus
 const COALITION_BONUS      = 0.15                   // +15% influence damage
 const RETALIATION_BONUS    = 0.25                   // +25% damage if retaliation active
@@ -44,8 +43,6 @@ const RETALIATION_MS       = 48 * 60 * 60 * 1000   // 48 hours
 const DISREPUTABLE_MS      = 2 * 60 * 60 * 1000    // 2 hours
 const SPREAD_PENALTY       = 0.05                   // -5% influence max per extra territory
 const FACTION_INFLUENCE_BONUS = 0.10                // +10% influence max if owner in a faction
-// Exponential maintenance cost per territory slot
-const MAINTENANCE_COSTS    = [500, 1000, 2500]
 const CAPTURE_INFLUENCE_FRACTION = 0.30             // new capture starts at 30% influence
 
 // Public read-only constants for the view
@@ -78,7 +75,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
     neighborhoods: makeEmptyNeighborhoods(),
     attackCooldowns: {},    // { nid: timestampWhenCanAttackAgain }
     boostCooldowns: {},     // { nid: { advert, guards, kep } }
-    lastMaintenanceCheck: 0,
     retaliationBonus: null, // { targetId, targetUsername, endsAt }
     disreputableUntil: null,
     incomeAccumulator: 0,   // ms accumulated for income tick
@@ -116,15 +112,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       const isMyTerritory = !!(ownerId && ownerId === state.myUserId)
       const factionBonus = isMyTerritory && useFactionStore().currentFaction ? FACTION_INFLUENCE_BONUS : 0
       return Math.floor(def.influenceBaseMax * (1 - penalty) * (1 + factionBonus))
-    },
-
-    dailyMaintenanceCost: (state) => {
-      if (!state.myUserId) return 0
-      const owned = Object.values(state.neighborhoods)
-        .filter(n => n.ownerId === state.myUserId).length
-      let total = 0
-      for (let i = 0; i < owned; i++) total += (MAINTENANCE_COSTS[i] ?? 2500)
-      return total
     },
 
     isDisreputable: (state) => {
@@ -244,9 +231,7 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
         this.lastFetched = Date.now()
 
         if (myId) {
-          await this._checkInactivityExpiry(myId)
           await this._checkRetaliationGrant(myId)
-          this._checkMaintenance(myId)
         }
       } catch (e) {
         console.error('Neighborhood fetch failed:', e)
@@ -342,7 +327,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
             owner_level: player.level,
             wall_hp: influence,
             captured_at: Date.now(),
-            last_maintenance_paid_at: Date.now(),
             updated_at: new Date().toISOString(),
           })
           .eq('neighborhood_id', nid)
@@ -357,7 +341,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
           ownerLevel: player.level,
           influence,
           capturedAt: Date.now(),
-          lastMaintenancePaidAt: Date.now(),
         }
 
         player.logActivity(`🏴 Ανέλαβες την αδέσμευτη γειτονιά ${def?.name}`, 'success')
@@ -451,15 +434,14 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
             .update({
               owner_id: myId,
               owner_username: player.name,
-              owner_level: player.level,
-              wall_hp: startInfluence,
-              captured_at: now,
-              last_attacked_at: now,
-              last_attacker_username: player.name,
-              last_maintenance_paid_at: now,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('neighborhood_id', nid)
+            owner_level: player.level,
+            wall_hp: startInfluence,
+            captured_at: now,
+            last_attacked_at: now,
+            last_attacker_username: player.name,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('neighborhood_id', nid)
 
           if (error) throw error
 
@@ -472,7 +454,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
             capturedAt: now,
             lastAttackedAt: now,
             lastAttackerUsername: player.name,
-            lastMaintenancePaidAt: now,
           }
 
           player.logActivity(`🏴 Πήρες τον έλεγχο της ${def?.name} με ${damage} ζημιά Επιρροής!`, 'success')
@@ -526,6 +507,60 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       } catch (e) {
         console.error('attackNeighborhood failed:', e)
         useGameStore().addNotification('Σφάλμα κατά την επίθεση.', 'danger')
+        return false
+      }
+    },
+
+    async abandonNeighborhood(nid) {
+      const myId = await this._resolveMyUserId()
+      const n = this.neighborhoods[nid]
+      const def = getNeighborhoodById(nid)
+
+      if (!n || n.ownerId !== myId) {
+        useGameStore().addNotification('Δεν ελέγχεις αυτή τη γειτονιά.', 'danger')
+        return false
+      }
+
+      const baseInfluence = def?.influenceBaseMax ?? 1000
+
+      try {
+        const { error } = await supabase
+          .from('neighborhood_control')
+          .update({
+            owner_id: null,
+            owner_username: '',
+            owner_level: 1,
+            wall_hp: baseInfluence,
+            captured_at: 0,
+            last_attacked_at: 0,
+            last_attacker_username: '',
+            graffiti: '',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('neighborhood_id', nid)
+          .eq('owner_id', myId)
+
+        if (error) throw error
+
+        this.neighborhoods[nid] = {
+          ...this.neighborhoods[nid],
+          ownerId: null,
+          ownerUsername: '',
+          ownerLevel: 1,
+          influence: baseInfluence,
+          capturedAt: 0,
+          lastAttackedAt: 0,
+          lastAttackerUsername: '',
+          graffiti: '',
+        }
+
+        usePlayerStore().logActivity(`🏳️ Αποχώρησες από τη γειτονιά ${def?.name}.`, 'info')
+        useGameStore().addNotification(`🏳️ Αποχώρησες από τη ${def?.name}.`, 'info')
+        useGameStore().saveGame()
+        return true
+      } catch (e) {
+        console.error('abandonNeighborhood failed:', e)
+        useGameStore().addNotification('Σφάλμα κατά την αποχώρηση από τη γειτονιά.', 'danger')
         return false
       }
     },
@@ -661,100 +696,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
 
     // ── Internal Helpers ──────────────────────────────────────────────────────
 
-    _checkMaintenance(myId) {
-      const now = Date.now()
-      const since = this.lastMaintenanceCheck
-      if (since && now - since < 24 * 60 * 60 * 1000) return // already checked today
-
-      const cost = this.dailyMaintenanceCost
-      if (cost <= 0) {
-        this.lastMaintenanceCheck = now
-        return
-      }
-
-      const player = usePlayerStore()
-      const eventsHub = useEventsHubStore()
-      if (player.cash >= cost) {
-        player.removeCash(cost)
-        player.logActivity(`🏘️ Συντήρηση Γειτονιών: -${cost}€`, 'info')
-        eventsHub.addEvent({
-          icon: '🏘️',
-          title: 'Ημερήσιο Χαράτσι',
-          message: `Πλήρωσες ${cost}€ συντήρηση για τις γειτονιές σου.`,
-          kind: 'neutral',
-        })
-        // Update maintenance timestamps in DB for owned neighborhoods
-        const ownedIds = Object.entries(this.neighborhoods)
-          .filter(([, n]) => n.ownerId === myId)
-          .map(([id]) => id)
-        for (const nid of ownedIds) {
-          this.neighborhoods[nid].lastMaintenancePaidAt = now
-        }
-        supabase
-          .from('neighborhood_control')
-          .update({ last_maintenance_paid_at: now, updated_at: new Date().toISOString() })
-          .in('neighborhood_id', ownedIds)
-          .then(() => {})
-      } else {
-        useGameStore().addNotification(
-          `⚠️ Δεν πλήρωσες Χαράτσι Γειτονιάς (${cost}€)! Η Επιρροή σου εξασθενεί.`, 'danger'
-        )
-        eventsHub.addEvent({
-          icon: '⚠️',
-          title: 'Χαράτσι Απλήρωτο',
-          message: `Δεν είχες αρκετά χρήματα για χαράτσι γειτονιάς (${cost}€)!`,
-          kind: 'bad',
-        })
-      }
-      this.lastMaintenanceCheck = now
-    },
-
-    async _checkInactivityExpiry(myId) {
-      const now = Date.now()
-      const expiredIds = []
-      for (const [id, n] of Object.entries(this.neighborhoods)) {
-        if (!n.ownerId) continue
-        if (n.ownerId === myId) continue // don't expire our own
-        const lastPaid = n.lastMaintenancePaidAt
-        if (lastPaid && now - lastPaid > INACTIVITY_MS) {
-          expiredIds.push(id)
-        }
-      }
-      if (expiredIds.length === 0) return
-
-      try {
-        // Reset each expired neighborhood to its base influence (varies per def)
-        for (const id of expiredIds) {
-          const def = getNeighborhoodById(id)
-          const baseInfluence = def?.influenceBaseMax ?? 1000
-          await supabase
-            .from('neighborhood_control')
-            .update({
-              owner_id: null,
-              owner_username: '',
-              wall_hp: baseInfluence,
-              captured_at: 0,
-              last_maintenance_paid_at: 0,
-              graffiti: '',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('neighborhood_id', id)
-
-          this.neighborhoods[id] = {
-            ...this.neighborhoods[id],
-            ownerId: null,
-            ownerUsername: '',
-            influence: baseInfluence,
-            capturedAt: 0,
-            lastMaintenancePaidAt: 0,
-            graffiti: '',
-          }
-        }
-      } catch (e) {
-        console.error('Inactivity expiry failed:', e)
-      }
-    },
-
     async _checkRetaliationGrant(myId) {
       if (!this.lastFetched) return
       const myNids = Object.entries(this.neighborhoods)
@@ -798,7 +739,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
       return {
         attackCooldowns: { ...this.attackCooldowns },
         boostCooldowns: JSON.parse(JSON.stringify(this.boostCooldowns)),
-        lastMaintenanceCheck: this.lastMaintenanceCheck,
         retaliationBonus: this.retaliationBonus ? { ...this.retaliationBonus } : null,
         disreputableUntil: this.disreputableUntil,
         incomeAccumulator: this.incomeAccumulator,
@@ -817,7 +757,6 @@ export const useNeighborhoodStore = defineStore('neighborhood', {
           this.boostCooldowns[nid].kep = ts
         }
       }
-      if (data.lastMaintenanceCheck !== undefined) this.lastMaintenanceCheck = data.lastMaintenanceCheck
       if (data.retaliationBonus !== undefined) this.retaliationBonus = data.retaliationBonus
       if (data.disreputableUntil !== undefined) this.disreputableUntil = data.disreputableUntil
       if (data.incomeAccumulator !== undefined) this.incomeAccumulator = data.incomeAccumulator
